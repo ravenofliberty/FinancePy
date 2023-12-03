@@ -4,7 +4,7 @@
 
 import matplotlib.pyplot as plt
 
-from financepy.models.volatility_fns import VolFunctionTypes
+from financepy.models.volatility_fns import VolFuncTypes
 from financepy.utils.date import Date
 from financepy.market.volatility.equity_vol_surface import EquityVolSurface
 from financepy.market.curves.discount_curve_flat import DiscountCurveFlat
@@ -12,7 +12,7 @@ import numpy as np
 
 
 def test_equity_vol_surface():
-    valuation_date = Date(11, 1, 2021)
+    value_date = Date(11, 1, 2021)
 
     stock_price = 3800.0  # Check
 
@@ -36,14 +36,14 @@ def test_equity_vol_surface():
     volSurface = volSurface / 100.0
 
     r = 0.020  # USD
-    discount_curve = DiscountCurveFlat(valuation_date, r)
+    discount_curve = DiscountCurveFlat(value_date, r)
 
     q = 0.010  # USD
-    dividend_curve = DiscountCurveFlat(valuation_date, q)
+    dividend_curve = DiscountCurveFlat(value_date, q)
 
-    vol_functionType = VolFunctionTypes.SVI
+    vol_functionType = VolFuncTypes.SVI
 
-    equitySurface = EquityVolSurface(valuation_date,
+    equitySurface = EquityVolSurface(value_date,
                                      stock_price,
                                      discount_curve,
                                      dividend_curve,
@@ -54,18 +54,18 @@ def test_equity_vol_surface():
 
     expiry_date = expiry_dates[0]
     delta = 0.10
-    vol = equitySurface.volatility_from_delta_date(delta, expiry_date)
+    vol = equitySurface.vol_from_delta_date(delta, expiry_date)
     assert round(vol[0], 4) == 0.1544
     assert round(vol[1], 4) == 4032.9156
 
     expiry_date = expiry_dates[1]
     delta = 0.20
-    vol = equitySurface.volatility_from_delta_date(delta, expiry_date)
+    vol = equitySurface.vol_from_delta_date(delta, expiry_date)
     assert round(vol[0], 4) == 0.1555
     assert round(vol[1], 4) == 4019.3793
 
     expiry_date = expiry_dates[6]
     delta = 0.90
-    vol = equitySurface.volatility_from_delta_date(delta, expiry_date)
-    assert round(vol[0], 4) == 0.3530
-    assert round(vol[1], 4) == 2190.7766
+    vol = equitySurface.vol_from_delta_date(delta, expiry_date)
+    assert round(vol[0], 4) == 0.3498
+    assert round(vol[1], 4) == 2199.6665

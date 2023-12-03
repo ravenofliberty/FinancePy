@@ -46,10 +46,10 @@ class CDSBasket:
                  running_coupon: float = 0.0,
                  long_protection: bool = True,
                  freq_type: FrequencyTypes = FrequencyTypes.QUARTERLY,
-                 day_count_type: DayCountTypes = DayCountTypes.ACT_360,
-                 calendar_type: CalendarTypes = CalendarTypes.WEEKEND,
-                 bus_day_adjust_type: BusDayAdjustTypes = BusDayAdjustTypes.FOLLOWING,
-                 date_gen_rule_type: DateGenRuleTypes = DateGenRuleTypes.BACKWARD):
+                 dc_type: DayCountTypes = DayCountTypes.ACT_360,
+                 cal_type: CalendarTypes = CalendarTypes.WEEKEND,
+                 bd_type: BusDayAdjustTypes = BusDayAdjustTypes.FOLLOWING,
+                 dg_type: DateGenRuleTypes = DateGenRuleTypes.BACKWARD):
 
         check_argument_types(self.__init__, locals())
 
@@ -58,11 +58,11 @@ class CDSBasket:
         self._notional = notional
         self._running_coupon = running_coupon / 10000.0
         self._long_protection = long_protection
-        self._day_count_type = day_count_type
-        self._date_gen_rule_type = date_gen_rule_type
-        self._calendar_type = calendar_type
+        self._dc_type = dc_type
+        self._dg_type = dg_type
+        self._cal_type = cal_type
         self._freq_type = freq_type
-        self._bus_day_adjust_type = bus_day_adjust_type
+        self._bd_type = bd_type
 
         self._cds_contract = CDS(self._step_in_date,
                                  self._maturity_date,
@@ -70,16 +70,16 @@ class CDSBasket:
                                  1.0,
                                  self._long_protection,
                                  self._freq_type,
-                                 self._day_count_type,
-                                 self._calendar_type,
-                                 self._bus_day_adjust_type,
-                                 self._date_gen_rule_type)
+                                 self._dc_type,
+                                 self._cal_type,
+                                 self._bd_type,
+                                 self._dg_type)
 
 ###############################################################################
 
     def value_legs_mc(self,
-                      valuation_date,
-                      nToDefault,
+                      value_date,
+                      n_to_default,
                       default_times,
                       issuer_curves,
                       libor_curve):
@@ -89,42 +89,47 @@ class CDSBasket:
         num_credits = default_times.shape[0]
         num_trials = default_times.shape[1]
 
-        adjusted_dates = self._cds_contract._adjusted_dates
-        num_flows = len(adjusted_dates)
-        day_count = DayCount(self._day_count_type)
+        payment_dates = self._cds_contract._payment_dates
+        num_payments = len(payment_dates)
+        day_count = DayCount(self._dc_type)
 
         averageAccrualFactor = 0.0
 
-        rpv01ToTimes = np.zeros(num_flows)
-        for iTime in range(1, num_flows):
-            t = (adjusted_dates[iTime] - valuation_date) / gDaysInYear
-            dt0 = adjusted_dates[iTime - 1]
-            dt1 = adjusted_dates[iTime]
+        rpv01ToTimes = np.zeros(num_payments)
+
+        for iTime in range(1, num_payments):
+
+            t = (payment_dates[iTime] - value_date) / gDaysInYear
+            dt0 = payment_dates[iTime - 1]
+            dt1 = payment_dates[iTime]
             accrual_factor = day_count.year_frac(dt0, dt1)[0]
             averageAccrualFactor += accrual_factor
             rpv01ToTimes[iTime] = rpv01ToTimes[iTime - 1] + \
                 accrual_factor * libor_curve._df(t)
 
-        averageAccrualFactor /= num_flows
+        averageAccrualFactor /= num_payments
 
-        tmat = (self._maturity_date - valuation_date) / gDaysInYear
+        tmat = (self._maturity_date - value_date) / gDaysInYear
 
         rpv01 = 0.0
         prot = 0.0
 
         assetTau = np.zeros(num_credits)
 
-        for iTrial in range(0, num_trials):
-            for iCredit in range(0, num_credits):
-                assetTau[iCredit] = default_times[iCredit, iTrial]
+        for i_trial in range(0, num_trials):
+
+            for i_credit in range(0, num_credits):
+
+                assetTau[i_credit] = default_times[i_credit, i_trial]
 
             # ORDER THE DEFAULT TIMES
             assetTau.sort()
 
             # GET THE Nth DEFAULT TIME
-            minTau = assetTau[nToDefault - 1]
+            minTau = assetTau[n_to_default - 1]
 
             if minTau < tmat:
+
                 numPaymentsIndex = int(minTau / averageAccrualFactor)
                 rpv01Trial = rpv01ToTimes[numPaymentsIndex]
                 rpv01Trial += (minTau - numPaymentsIndex *
@@ -132,9 +137,9 @@ class CDSBasket:
 
                 # DETERMINE IDENTITY OF N-TO-DEFAULT CREDIT IF BASKET NOT HOMO
                 assetIndex = 0
-                for iCredit in range(0, num_credits):
-                    if minTau == default_times[iCredit, iTrial]:
-                        assetIndex = iCredit
+                for i_credit in range(0, num_credits):
+                    if minTau == default_times[i_credit, i_trial]:
+                        assetIndex = i_credit
                         break
 
                 protTrial = (1.0 - issuer_curves[assetIndex]._recovery_rate)
@@ -143,7 +148,7 @@ class CDSBasket:
             else:
 
                 numPaymentsIndex = int(tmat / averageAccrualFactor)
-                rpv01Trial = rpv01ToTimes[numPaymentsIndex]
+                rpv01Trial = rpv01ToTimes[-1]
                 protTrial = 0.0
 
             rpv01 += rpv01Trial
@@ -156,10 +161,10 @@ class CDSBasket:
 ###############################################################################
 
     def value_gaussian_mc(self,
-                          valuation_date,
-                          nToDefault,
+                          value_date,
+                          n_to_default,
                           issuer_curves,
-                          correlationMatrix,
+                          correlation_matrix,
                           libor_curve,
                           num_trials,
                           seed):
@@ -168,16 +173,16 @@ class CDSBasket:
 
         num_credits = len(issuer_curves)
 
-        if nToDefault > num_credits or nToDefault < 1:
-            raise FinError("nToDefault must be 1 to num_credits")
+        if n_to_default > num_credits or n_to_default < 1:
+            raise FinError("n_to_default must be 1 to num_credits")
 
         default_times = default_times_gc(issuer_curves,
-                                         correlationMatrix,
+                                         correlation_matrix,
                                          num_trials,
                                          seed)
 
-        rpv01, prot_pv = self.value_legs_mc(valuation_date,
-                                            nToDefault,
+        rpv01, prot_pv = self.value_legs_mc(value_date,
+                                            n_to_default,
                                             default_times,
                                             issuer_curves,
                                             libor_curve)
@@ -193,10 +198,10 @@ class CDSBasket:
 ###############################################################################
 
     def value_student_t_mc(self,
-                           valuation_date,
-                           nToDefault,
+                           value_date,
+                           n_to_default,
                            issuer_curves,
-                           correlationMatrix,
+                           correlation_matrix,
                            degreesOfFreedom,
                            libor_curve,
                            num_trials,
@@ -205,19 +210,19 @@ class CDSBasket:
 
         num_credits = len(issuer_curves)
 
-        if nToDefault > num_credits or nToDefault < 1:
-            raise FinError("nToDefault must be 1 to num_credits")
+        if n_to_default > num_credits or n_to_default < 1:
+            raise FinError("n_to_default must be 1 to num_credits")
 
         model = StudentTCopula()
 
         default_times = model.default_times(issuer_curves,
-                                            correlationMatrix,
+                                            correlation_matrix,
                                             degreesOfFreedom,
                                             num_trials,
                                             seed)
 
-        rpv01, prot_pv = self.value_legs_mc(valuation_date,
-                                            nToDefault,
+        rpv01, prot_pv = self.value_legs_mc(value_date,
+                                            n_to_default,
                                             default_times,
                                             issuer_curves,
                                             libor_curve)
@@ -233,8 +238,8 @@ class CDSBasket:
 ###############################################################################
 
     def value_1f_gaussian_homo(self,
-                               valuation_date,
-                               nToDefault,
+                               value_date,
+                               n_to_default,
                                issuer_curves,
                                beta_vector,
                                libor_curve,
@@ -247,15 +252,15 @@ class CDSBasket:
         if num_credits == 0:
             raise FinError("Num Credits is zero")
 
-        if nToDefault < 1 or nToDefault > num_credits:
-            raise FinError("NToDefault must be 1 to num_credits")
+        if n_to_default < 1 or n_to_default > num_credits:
+            raise FinError("n_to_default must be 1 to num_credits")
 
-        tmat = (self._maturity_date - valuation_date) / gDaysInYear
+        tmat = (self._maturity_date - value_date) / gDaysInYear
 
         if tmat < 0.0:
             raise FinError("Value date is after maturity date")
 
-        payment_dates = self._cds_contract._adjusted_dates
+        payment_dates = self._cds_contract._payment_dates
         num_times = len(payment_dates)
 
         issuerSurvivalProbabilities = np.zeros(num_credits)
@@ -266,14 +271,14 @@ class CDSBasket:
         basketTimes[0] = 0.0
         basketSurvivalCurve[0] = 1.0
 
-        for iTime in range(1, num_times):
+        for iTime in range(0, num_times):
 
-            t = (payment_dates[iTime] - valuation_date) / gDaysInYear
+            t = (payment_dates[iTime] - value_date) / gDaysInYear
 
-            for iCredit in range(0, num_credits):
-                issuer_curve = issuer_curves[iCredit]
-                recovery_rates[iCredit] = issuer_curve._recovery_rate
-                issuerSurvivalProbabilities[iCredit] = interpolate(
+            for i_credit in range(0, num_credits):
+                issuer_curve = issuer_curves[i_credit]
+                recovery_rates[i_credit] = issuer_curve._recovery_rate
+                issuerSurvivalProbabilities[i_credit] = interpolate(
                     t, issuer_curve._times, issuer_curve._values,
                     InterpTypes.FLAT_FWD_RATES.value)
 
@@ -283,21 +288,21 @@ class CDSBasket:
                                             num_points)
 
             basketSurvivalCurve[iTime] = 1.0
-            for iToDefault in range(nToDefault, num_credits + 1):
+            for iToDefault in range(n_to_default, num_credits + 1):
                 basketSurvivalCurve[iTime] -= lossDbn[iToDefault]
 
             basketTimes[iTime] = t
 
         curveRecovery = recovery_rates[0]
         libor_curve = issuer_curves[0]._libor_curve
-        basketCurve = CDSCurve(valuation_date, [], libor_curve, curveRecovery)
+        basketCurve = CDSCurve(value_date, [], libor_curve, curveRecovery)
         basketCurve._times = basketTimes
         basketCurve._values = basketSurvivalCurve
 
         protLegPV = self._cds_contract.protection_leg_pv(
-            valuation_date, basketCurve, curveRecovery)
+            value_date, basketCurve, curveRecovery)
         risky_pv01 = self._cds_contract.risky_pv01(
-            valuation_date, basketCurve)['clean_rpv01']
+            value_date, basketCurve)['clean_rpv01']
 
         # Long protection
         mtm = self._notional * (protLegPV - risky_pv01 * self._running_coupon)
@@ -324,14 +329,14 @@ class CDSBasket:
         s += label_to_string("NOTIONAL", self._notional)
         s += label_to_string("RUNNING COUPON",
                              self._running_coupon*10000, "bp\n")
-        s += label_to_string("DAYCOUNT", self._day_count_type)
+        s += label_to_string("DAYCOUNT", self._dc_type)
         s += label_to_string("FREQUENCY", self._freq_type)
-        s += label_to_string("CALENDAR", self._calendar_type)
-        s += label_to_string("BUSDAYRULE", self._bus_day_adjust_type)
-        s += label_to_string("DATEGENRULE", self._date_gen_rule_type)
+        s += label_to_string("CALENDAR", self._cal_type)
+        s += label_to_string("BUSDAYRULE", self._bd_type)
+        s += label_to_string("DATEGENRULE", self._dg_type)
 
 #       header = "PAYMENT_DATE, YEAR_FRAC, FLOW"
-#       valueTable = [self._adjusted_dates, self._accrual_factors, self._flows]
+#       valueTable = [self._payment_dates, self._accrual_factors, self._flows]
 #       precision = "12.6f"
 #       s += tableToString(header, valueTable, precision)
 

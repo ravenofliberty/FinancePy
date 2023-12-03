@@ -2,6 +2,9 @@
 # Copyright (C) 2018, 2019, 2020 Dominic O'Kane
 ###############################################################################
 
+import datetime as dt
+import os
+
 import sys
 sys.path.append("..")
 
@@ -15,8 +18,6 @@ from financepy.products.bonds.bond import Bond
 from financepy.utils.date import Date, from_datetime
 from financepy.utils.day_count import DayCountTypes
 from financepy.utils.frequency import FrequencyTypes
-import datetime as dt
-import os
 
 
 
@@ -36,7 +37,7 @@ def test_BondYieldCurve():
     bondDataFrame['mid'] = 0.5*(bondDataFrame['bid'] + bondDataFrame['ask'])
 
     freq_type = FrequencyTypes.SEMI_ANNUAL
-    accrual_type = DayCountTypes.ACT_ACT_ICMA
+    dc_type = DayCountTypes.ACT_ACT_ICMA
     settlement = Date(19, 9, 2012)
 
     bonds = []
@@ -50,7 +51,7 @@ def test_BondYieldCurve():
         issueDt = Date(maturityDt._d, maturityDt._m, 2000)
         coupon = bond['coupon']/100.0
         clean_price = bond['mid']
-        bond = Bond(issueDt, maturityDt, coupon, freq_type, accrual_type)
+        bond = Bond(issueDt, maturityDt, coupon, freq_type, dc_type)
         yld = bond.yield_to_maturity(settlement, clean_price)
         bonds.append(bond)
         ylds.append(yld)

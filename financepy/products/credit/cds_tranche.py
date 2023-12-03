@@ -54,10 +54,10 @@ class CDSTranche:
                  running_coupon: float = 0.0,
                  long_protection: bool = True,
                  freq_type: FrequencyTypes = FrequencyTypes.QUARTERLY,
-                 day_count_type: DayCountTypes = DayCountTypes.ACT_360,
-                 calendar_type: CalendarTypes = CalendarTypes.WEEKEND,
-                 bus_day_adjust_type: BusDayAdjustTypes = BusDayAdjustTypes.FOLLOWING,
-                 date_gen_rule_type: DateGenRuleTypes = DateGenRuleTypes.BACKWARD):
+                 dc_type: DayCountTypes = DayCountTypes.ACT_360,
+                 cal_type: CalendarTypes = CalendarTypes.WEEKEND,
+                 bd_type: BusDayAdjustTypes = BusDayAdjustTypes.FOLLOWING,
+                 dg_type: DateGenRuleTypes = DateGenRuleTypes.BACKWARD):
 
         check_argument_types(self.__init__, locals())
 
@@ -72,11 +72,11 @@ class CDSTranche:
         self._notional = notional
         self._running_coupon = running_coupon
         self._long_protection = long_protection
-        self._day_count_type = day_count_type
-        self._date_gen_rule_type = date_gen_rule_type
-        self._calendar_type = calendar_type
+        self._dc_type = dc_type
+        self._dg_type = dg_type
+        self._cal_type = cal_type
         self._freq_type = freq_type
-        self._bus_day_adjust_type = bus_day_adjust_type
+        self._bd_type = bd_type
 
         notional = 1.0
 
@@ -86,15 +86,15 @@ class CDSTranche:
                                  notional,
                                  self._long_protection,
                                  self._freq_type,
-                                 self._day_count_type,
-                                 self._calendar_type,
-                                 self._bus_day_adjust_type,
-                                 self._date_gen_rule_type)
+                                 self._dc_type,
+                                 self._cal_type,
+                                 self._bd_type,
+                                 self._dg_type)
 
-    ###############################################################################
+    ###########################################################################
 
     def value_bc(self,
-                 valuation_date,
+                 value_date,
                  issuer_curves,
                  upfront,
                  running_coupon,
@@ -106,7 +106,7 @@ class CDSTranche:
         num_credits = len(issuer_curves)
         k1 = self._k1
         k2 = self._k2
-        tmat = (self._maturity_date - valuation_date) / gDaysInYear
+        tmat = (self._maturity_date - value_date) / gDaysInYear
 
         if tmat < 0.0:
             raise FinError("Value date is after maturity date")
@@ -126,8 +126,9 @@ class CDSTranche:
 
         recovery_rates = np.zeros(num_credits)
 
-        payment_dates = self._cds_contract._adjusted_dates
-        num_times = len(payment_dates)
+        payment_dates = self._cds_contract._payment_dates
+        num_payments = len(payment_dates)
+        num_times = num_payments + 1
 
         beta1 = sqrt(corr1)
         beta2 = sqrt(corr2)
@@ -140,8 +141,9 @@ class CDSTranche:
             beta_vector2[bb] = beta2
 
         qVector = np.zeros(num_credits)
-        qt1 = np.zeros(num_times)
-        qt2 = np.zeros(num_times)
+        qt1 = np.zeros(num_times)  # include 1.0
+        qt2 = np.zeros(num_times)  # include 1.0
+
         trancheTimes = np.zeros(num_times)
         trancheSurvivalCurve = np.zeros(num_times)
 
@@ -152,9 +154,10 @@ class CDSTranche:
 
         for i in range(1, num_times):
 
-            t = (payment_dates[i] - valuation_date) / gDaysInYear
+            t = (payment_dates[i-1] - value_date) / gDaysInYear
 
             for j in range(0, num_credits):
+
                 issuer_curve = issuer_curves[j]
                 vTimes = issuer_curve._times
                 qRow = issuer_curve._values
@@ -163,20 +166,25 @@ class CDSTranche:
                     t, vTimes, qRow, InterpTypes.FLAT_FWD_RATES.value)
 
             if model == FinLossDistributionBuilder.RECURSION:
+
                 qt1[i] = tranche_surv_prob_recursion(
                     0.0, k1, num_credits, qVector, recovery_rates,
                     beta_vector1, num_points)
                 qt2[i] = tranche_surv_prob_recursion(
                     0.0, k2, num_credits, qVector, recovery_rates,
                     beta_vector2, num_points)
+
             elif model == FinLossDistributionBuilder.ADJUSTED_BINOMIAL:
+
                 qt1[i] = tranche_surv_prob_adj_binomial(
                     0.0, k1, num_credits, qVector, recovery_rates,
                     beta_vector1, num_points)
                 qt2[i] = tranche_surv_prob_adj_binomial(
                     0.0, k2, num_credits, qVector, recovery_rates,
                     beta_vector2, num_points)
+
             elif model == FinLossDistributionBuilder.GAUSSIAN:
+
                 qt1[i] = tranch_surv_prob_gaussian(
                     0.0,
                     k1,
@@ -193,11 +201,15 @@ class CDSTranche:
                     recovery_rates,
                     beta_vector2,
                     num_points)
+
             elif model == FinLossDistributionBuilder.LHP:
+
                 qt1[i] = tr_surv_prob_lhp(
                     0.0, k1, num_credits, qVector, recovery_rates, beta1)
+
                 qt2[i] = tr_surv_prob_lhp(
                     0.0, k2, num_credits, qVector, recovery_rates, beta2)
+
             else:
                 raise FinError(
                     "Unknown model type only full and AdjBinomial allowed")
@@ -216,14 +228,14 @@ class CDSTranche:
         curveRecovery = 0.0  # For tranches only
         libor_curve = issuer_curves[0]._libor_curve
         trancheCurve = CDSCurve(
-            valuation_date, [], libor_curve, curveRecovery)
+            value_date, [], libor_curve, curveRecovery)
         trancheCurve._times = trancheTimes
         trancheCurve._values = trancheSurvivalCurve
 
         protLegPV = self._cds_contract.protection_leg_pv(
-            valuation_date, trancheCurve, curveRecovery)
+            value_date, trancheCurve, curveRecovery)
         risky_pv01 = self._cds_contract.risky_pv01(
-            valuation_date, trancheCurve)['clean_rpv01']
+            value_date, trancheCurve)['clean_rpv01']
 
         mtm = self._notional * (protLegPV - upfront -
                                 risky_pv01 * running_coupon)

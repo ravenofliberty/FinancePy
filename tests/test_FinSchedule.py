@@ -28,17 +28,17 @@ def test_backward_frequencies():
     # BACKWARD SCHEDULES TESTING DIFFERENT FREQUENCIES
     d1 = Date(20, 6, 2018)
     d2 = Date(20, 6, 2020)
-    calendar_type = CalendarTypes.WEEKEND
-    bus_day_adjust_type = BusDayAdjustTypes.FOLLOWING
-    date_gen_rule_type = DateGenRuleTypes.BACKWARD
+    cal_type = CalendarTypes.WEEKEND
+    bd_type = BusDayAdjustTypes.FOLLOWING
+    dg_type = DateGenRuleTypes.BACKWARD
 
     freq_type = FrequencyTypes.SEMI_ANNUAL
     schedule = Schedule(d1,
                         d2,
                         freq_type,
-                        calendar_type,
-                        bus_day_adjust_type,
-                        date_gen_rule_type,
+                        cal_type,
+                        bd_type,
+                        dg_type,
                         termination_dateAdjust)
     adjusted_dates = schedule._adjusted_dates
     assert len(adjusted_dates) == 5
@@ -48,9 +48,9 @@ def test_backward_frequencies():
     schedule = Schedule(d1,
                         d2,
                         freq_type,
-                        calendar_type,
-                        bus_day_adjust_type,
-                        date_gen_rule_type,
+                        cal_type,
+                        bd_type,
+                        dg_type,
                         termination_dateAdjust)
     adjusted_dates = schedule._adjusted_dates
     assert len(adjusted_dates) == 9
@@ -60,9 +60,9 @@ def test_backward_frequencies():
     schedule = Schedule(d1,
                         d2,
                         freq_type,
-                        calendar_type,
-                        bus_day_adjust_type,
-                        date_gen_rule_type,
+                        cal_type,
+                        bd_type,
+                        dg_type,
                         termination_dateAdjust)
     adjusted_dates = schedule._adjusted_dates
     assert len(adjusted_dates) == 25
@@ -71,9 +71,9 @@ def test_backward_frequencies():
 
 def test_forward_frequencies():
     # FORWARD SCHEDULES TESTING DIFFERENT FREQUENCIES
-    calendar_type = CalendarTypes.WEEKEND
-    bus_day_adjust_type = BusDayAdjustTypes.FOLLOWING
-    date_gen_rule_type = DateGenRuleTypes.FORWARD
+    cal_type = CalendarTypes.WEEKEND
+    bd_type = BusDayAdjustTypes.FOLLOWING
+    dg_type = DateGenRuleTypes.FORWARD
 
     d1 = Date(20, 6, 2018)
     d2 = Date(20, 6, 2020)
@@ -82,9 +82,9 @@ def test_forward_frequencies():
     schedule = Schedule(d1,
                         d2,
                         freq_type,
-                        calendar_type,
-                        bus_day_adjust_type,
-                        date_gen_rule_type,
+                        cal_type,
+                        bd_type,
+                        dg_type,
                         termination_dateAdjust)
     adjusted_dates = schedule._adjusted_dates
     assert len(adjusted_dates) == 3
@@ -94,9 +94,9 @@ def test_forward_frequencies():
     schedule = Schedule(d1,
                         d2,
                         freq_type,
-                        calendar_type,
-                        bus_day_adjust_type,
-                        date_gen_rule_type)
+                        cal_type,
+                        bd_type,
+                        dg_type)
     adjusted_dates = schedule._adjusted_dates
     assert len(adjusted_dates) == 5
     check_frequency(schedule)
@@ -105,9 +105,9 @@ def test_forward_frequencies():
     schedule = Schedule(d1,
                         d2,
                         freq_type,
-                        calendar_type,
-                        bus_day_adjust_type,
-                        date_gen_rule_type,
+                        cal_type,
+                        bd_type,
+                        dg_type,
                         termination_dateAdjust)
     adjusted_dates = schedule._adjusted_dates
     assert len(adjusted_dates) == 25
@@ -120,16 +120,16 @@ def test_backward_front_stub():
     d2 = Date(20, 6, 2020)
 
     freq_type = FrequencyTypes.QUARTERLY
-    calendar_type = CalendarTypes.WEEKEND
-    bus_day_adjust_type = BusDayAdjustTypes.FOLLOWING
-    date_gen_rule_type = DateGenRuleTypes.BACKWARD
+    cal_type = CalendarTypes.WEEKEND
+    bd_type = BusDayAdjustTypes.FOLLOWING
+    dg_type = DateGenRuleTypes.BACKWARD
 
     schedule = Schedule(d1,
                         d2,
                         freq_type,
-                        calendar_type,
-                        bus_day_adjust_type,
-                        date_gen_rule_type,
+                        cal_type,
+                        bd_type,
+                        dg_type,
                         termination_dateAdjust)
     adjusted_dates = schedule._adjusted_dates
     assert len(adjusted_dates) == 9
@@ -140,16 +140,16 @@ def test_backward_front_stub():
     d2 = Date(20, 6, 2020)
 
     freq_type = FrequencyTypes.QUARTERLY
-    calendar_type = CalendarTypes.WEEKEND
-    bus_day_adjust_type = BusDayAdjustTypes.FOLLOWING
-    date_gen_rule_type = DateGenRuleTypes.BACKWARD
+    cal_type = CalendarTypes.WEEKEND
+    bd_type = BusDayAdjustTypes.FOLLOWING
+    dg_type = DateGenRuleTypes.BACKWARD
 
     schedule = Schedule(d1,
                         d2,
                         freq_type,
-                        calendar_type,
-                        bus_day_adjust_type,
-                        date_gen_rule_type,
+                        cal_type,
+                        bd_type,
+                        dg_type,
                         termination_dateAdjust)
     adjusted_dates = schedule._adjusted_dates
     assert len(adjusted_dates) == 9
@@ -163,16 +163,16 @@ def test_forward_end_stub():
     d2 = Date(20, 6, 2020)
 
     freq_type = FrequencyTypes.SEMI_ANNUAL
-    calendar_type = CalendarTypes.WEEKEND
-    bus_day_adjust_type = BusDayAdjustTypes.FOLLOWING
-    date_gen_rule_type = DateGenRuleTypes.FORWARD
+    cal_type = CalendarTypes.WEEKEND
+    bd_type = BusDayAdjustTypes.FOLLOWING
+    dg_type = DateGenRuleTypes.FORWARD
 
     schedule = Schedule(d1,
                         d2,
                         freq_type,
-                        calendar_type,
-                        bus_day_adjust_type,
-                        date_gen_rule_type,
+                        cal_type,
+                        bd_type,
+                        dg_type,
                         termination_dateAdjust)
     adjusted_dates = schedule._adjusted_dates
     assert len(adjusted_dates) == 5
@@ -182,16 +182,16 @@ def test_forward_end_stub():
     d2 = Date(20, 6, 2020)
 
     freq_type = FrequencyTypes.QUARTERLY
-    calendar_type = CalendarTypes.TARGET
-    bus_day_adjust_type = BusDayAdjustTypes.FOLLOWING
-    date_gen_rule_type = DateGenRuleTypes.FORWARD
+    cal_type = CalendarTypes.TARGET
+    bd_type = BusDayAdjustTypes.FOLLOWING
+    dg_type = DateGenRuleTypes.FORWARD
 
     schedule = Schedule(d1,
                         d2,
                         freq_type,
-                        calendar_type,
-                        bus_day_adjust_type,
-                        date_gen_rule_type)
+                        cal_type,
+                        bd_type,
+                        dg_type)
     adjusted_dates = schedule._adjusted_dates
     assert len(adjusted_dates) == 9
     check_frequency(schedule)
@@ -200,17 +200,17 @@ def test_forward_end_stub():
     d2 = Date(20, 6, 2020)
 
     freq_type = FrequencyTypes.SEMI_ANNUAL
-    calendar_type = CalendarTypes.WEEKEND
-    bus_day_adjust_type = BusDayAdjustTypes.FOLLOWING
-    date_gen_rule_type = DateGenRuleTypes.BACKWARD
+    cal_type = CalendarTypes.WEEKEND
+    bd_type = BusDayAdjustTypes.FOLLOWING
+    dg_type = DateGenRuleTypes.BACKWARD
     termination_dateAdjust = True
 
     schedule = Schedule(d1,
                         d2,
                         freq_type,
-                        calendar_type,
-                        bus_day_adjust_type,
-                        date_gen_rule_type,
+                        cal_type,
+                        bd_type,
+                        dg_type,
                         termination_dateAdjust)
     adjusted_dates = schedule._adjusted_dates
     assert len(adjusted_dates) == 5

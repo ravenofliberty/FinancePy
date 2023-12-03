@@ -5,6 +5,10 @@
 import matplotlib.pyplot as plt
 import time
 import numpy as np
+
+import sys
+sys.path.append("..")
+
 from financepy.utils.global_types import FinExerciseTypes
 from financepy.utils.global_vars import gDaysInYear
 from financepy.utils.date import Date
@@ -17,9 +21,6 @@ from financepy.products.bonds.bond_option import BondOption
 from financepy.utils.global_types import OptionTypes
 from financepy.models.hw_tree import HWTree, FinHWEuropeanCalcType
 from FinTestCases import FinTestCases, globalTestCaseMode
-import sys
-sys.path.append("..\\")
-
 
 testCases = FinTestCases(__file__, globalTestCaseMode)
 
@@ -30,20 +31,20 @@ plotGraphs = False
 
 def test_BondOption():
 
-    settlement_date = Date(1, 12, 2019)
+    settle_date = Date(1, 12, 2019)
     issue_date = Date(1, 12, 2018)
-    maturity_date = settlement_date.add_tenor("10Y")
+    maturity_date = settle_date.add_tenor("10Y")
     coupon = 0.05
     freq_type = FrequencyTypes.SEMI_ANNUAL
-    accrual_type = DayCountTypes.ACT_ACT_ICMA
-    bond = Bond(issue_date, maturity_date, coupon, freq_type, accrual_type)
+    dc_type = DayCountTypes.ACT_ACT_ICMA
+    bond = Bond(issue_date, maturity_date, coupon, freq_type, dc_type)
 
     times = np.linspace(0, 10.0, 21)
     dfs = np.exp(-0.05*times)
-    dates = settlement_date.add_years(times)
-    discount_curve = DiscountCurve(settlement_date, dates, dfs)
+    dates = settle_date.add_years(times)
+    discount_curve = DiscountCurve(settle_date, dates, dfs)
 
-    expiry_date = settlement_date.add_tenor("18m")
+    expiry_date = settle_date.add_tenor("18m")
     strike_price = 105.0
     face = 100.0
 
@@ -56,7 +57,7 @@ def test_BondOption():
     testCases.header("LABEL", "VALUE")
 
     price = bond.clean_price_from_discount_curve(
-        settlement_date, discount_curve)
+        settle_date, discount_curve)
     testCases.print("Fixed Income Price:", price)
 
     num_time_steps = 50
@@ -69,11 +70,11 @@ def test_BondOption():
         sigma = 0.01
         a = 0.1
 
-        bond_option = BondOption(bond, expiry_date, strike_price, face,
+        bond_option = BondOption(bond, expiry_date, strike_price,
                                  option_type)
 
         model = HWTree(sigma, a, num_time_steps)
-        v = bond_option.value(settlement_date, discount_curve, model)
+        v = bond_option.value(settle_date, discount_curve, model)
         testCases.print(strike_price, v)
 
     ###########################################################################
@@ -81,7 +82,7 @@ def test_BondOption():
     option_type = OptionTypes.AMERICAN_CALL
 
     price = bond.clean_price_from_discount_curve(
-        settlement_date, discount_curve)
+        settle_date, discount_curve)
     testCases.header("LABEL", "VALUE")
     testCases.print("Fixed Income Price:", price)
 
@@ -93,11 +94,11 @@ def test_BondOption():
         sigma = 0.01
         a = 0.1
 
-        bond_option = BondOption(bond, expiry_date, strike_price, face,
+        bond_option = BondOption(bond, expiry_date, strike_price,
                                  option_type)
 
         model = HWTree(sigma, a)
-        v = bond_option.value(settlement_date, discount_curve, model)
+        v = bond_option.value(settle_date, discount_curve, model)
         testCases.print(strike_price, v)
 
     ###########################################################################
@@ -107,18 +108,18 @@ def test_BondOption():
     testCases.header("STRIKE", "VALUE")
 
     price = bond.clean_price_from_discount_curve(
-        settlement_date, discount_curve)
+        settle_date, discount_curve)
 
     for strike_price in strikes:
 
         sigma = 0.01
         a = 0.1
 
-        bond_option = BondOption(bond, expiry_date, strike_price, face,
+        bond_option = BondOption(bond, expiry_date, strike_price,
                                  option_type)
 
         model = HWTree(sigma, a)
-        v = bond_option.value(settlement_date, discount_curve, model)
+        v = bond_option.value(settle_date, discount_curve, model)
         testCases.print(strike_price, v)
 
     ###########################################################################
@@ -128,18 +129,18 @@ def test_BondOption():
     testCases.header("STRIKE", "VALUE")
 
     price = bond.clean_price_from_discount_curve(
-        settlement_date, discount_curve)
+        settle_date, discount_curve)
 
     for strike_price in strikes:
 
         sigma = 0.02
         a = 0.1
 
-        bond_option = BondOption(bond, expiry_date, strike_price, face,
+        bond_option = BondOption(bond, expiry_date, strike_price,
                                  option_type)
 
         model = HWTree(sigma, a)
-        v = bond_option.value(settlement_date, discount_curve, model)
+        v = bond_option.value(settle_date, discount_curve, model)
         testCases.print(strike_price, v)
 
 ###############################################################################
@@ -152,8 +153,8 @@ def test_BondOptionEuropeanConvergence():
     # TREE HAS BEEN CORRECTLY CONSTRUCTED. FIND VERY GOOD AGREEMENT.
 
     # Build discount curve
-    settlement_date = Date(1, 12, 2019)
-    discount_curve = DiscountCurveFlat(settlement_date, 0.05,
+    settle_date = Date(1, 12, 2019)
+    discount_curve = DiscountCurveFlat(settle_date, 0.05,
                                        FrequencyTypes.CONTINUOUS)
 
     # Bond details
@@ -161,8 +162,8 @@ def test_BondOptionEuropeanConvergence():
     maturity_date = Date(1, 12, 2020)
     coupon = 0.05
     freq_type = FrequencyTypes.ANNUAL
-    accrual_type = DayCountTypes.ACT_ACT_ICMA
-    bond = Bond(issue_date, maturity_date, coupon, freq_type, accrual_type)
+    dc_type = DayCountTypes.ACT_ACT_ICMA
+    bond = Bond(issue_date, maturity_date, coupon, freq_type, dc_type)
 
     # Option Details - put expiry in the middle of a coupon period
     expiry_date = Date(1, 3, 2020)
@@ -183,32 +184,32 @@ def test_BondOptionEuropeanConvergence():
         start = time.time()
         option_type = OptionTypes.EUROPEAN_PUT
 
-        bond_option1 = BondOption(bond, expiry_date, strike_price, face,
+        bond_option1 = BondOption(bond, expiry_date, strike_price,
                                   option_type)
         model1 = HWTree(sigma, a, num_time_steps)
-        v1put = bond_option1.value(settlement_date, discount_curve, model1)
+        v1put = bond_option1.value(settle_date, discount_curve, model1)
 
-        bond_option2 = BondOption(bond, expiry_date, strike_price, face,
+        bond_option2 = BondOption(bond, expiry_date, strike_price,
                                   option_type)
 
         model2 = HWTree(sigma, a, num_time_steps,
                         FinHWEuropeanCalcType.EXPIRY_ONLY)
-        v2put = bond_option2.value(settlement_date, discount_curve, model2)
+        v2put = bond_option2.value(settle_date, discount_curve, model2)
 
         option_type = OptionTypes.EUROPEAN_CALL
 
-        bond_option1 = BondOption(bond, expiry_date, strike_price, face,
+        bond_option1 = BondOption(bond, expiry_date, strike_price,
                                   option_type)
 
         model1 = HWTree(sigma, a, num_time_steps)
-        v1call = bond_option1.value(settlement_date, discount_curve, model1)
+        v1call = bond_option1.value(settle_date, discount_curve, model1)
 
-        bond_option2 = BondOption(bond, expiry_date, strike_price, face,
+        bond_option2 = BondOption(bond, expiry_date, strike_price,
                                   option_type)
 
         model2 = HWTree(sigma, a, num_time_steps,
                         FinHWEuropeanCalcType.EXPIRY_TREE)
-        v2call = bond_option2.value(settlement_date, discount_curve, model2)
+        v2call = bond_option2.value(settle_date, discount_curve, model2)
 
         end = time.time()
         period = end - start
@@ -220,16 +221,16 @@ def test_BondOptionEuropeanConvergence():
 def test_BondOptionAmericanConvergenceONE():
 
     # Build discount curve
-    settlement_date = Date(1, 12, 2019)
-    discount_curve = DiscountCurveFlat(settlement_date, 0.05)
+    settle_date = Date(1, 12, 2019)
+    discount_curve = DiscountCurveFlat(settle_date, 0.05)
 
     # Bond details
     issue_date = Date(1, 9, 2014)
     maturity_date = Date(1, 9, 2025)
     coupon = 0.05
     freq_type = FrequencyTypes.SEMI_ANNUAL
-    accrual_type = DayCountTypes.ACT_ACT_ICMA
-    bond = Bond(issue_date, maturity_date, coupon, freq_type, accrual_type)
+    dc_type = DayCountTypes.ACT_ACT_ICMA
+    bond = Bond(issue_date, maturity_date, coupon, freq_type, dc_type)
 
     # Option Details
     expiry_date = Date(1, 12, 2020)
@@ -249,34 +250,34 @@ def test_BondOptionAmericanConvergenceONE():
         start = time.time()
 
         option_type = OptionTypes.AMERICAN_PUT
-        bond_option1 = BondOption(bond, expiry_date, strike_price, face,
+        bond_option1 = BondOption(bond, expiry_date, strike_price,
                                   option_type)
 
         model1 = HWTree(sigma, a, num_time_steps)
-        v1put = bond_option1.value(settlement_date, discount_curve, model1)
+        v1put = bond_option1.value(settle_date, discount_curve, model1)
 
         option_type = OptionTypes.EUROPEAN_PUT
-        bond_option2 = BondOption(bond, expiry_date, strike_price, face,
+        bond_option2 = BondOption(bond, expiry_date, strike_price,
                                   option_type)
 
         model2 = HWTree(sigma, a, num_time_steps,
                         FinHWEuropeanCalcType.EXPIRY_ONLY)
-        v2put = bond_option2.value(settlement_date, discount_curve, model2)
+        v2put = bond_option2.value(settle_date, discount_curve, model2)
 
         option_type = OptionTypes.AMERICAN_CALL
-        bond_option1 = BondOption(bond, expiry_date, strike_price, face,
+        bond_option1 = BondOption(bond, expiry_date, strike_price,
                                   option_type)
 
         model1 = HWTree(sigma, a, num_time_steps)
-        v1call = bond_option1.value(settlement_date, discount_curve, model1)
+        v1call = bond_option1.value(settle_date, discount_curve, model1)
 
         option_type = OptionTypes.EUROPEAN_CALL
-        bond_option2 = BondOption(bond, expiry_date, strike_price, face,
+        bond_option2 = BondOption(bond, expiry_date, strike_price,
                                   option_type)
 
         model2 = HWTree(sigma, a, num_time_steps,
                         FinHWEuropeanCalcType.EXPIRY_TREE)
-        v2call = bond_option2.value(settlement_date, discount_curve, model2)
+        v2call = bond_option2.value(settle_date, discount_curve, model2)
 
         end = time.time()
 
@@ -290,21 +291,21 @@ def test_BondOptionAmericanConvergenceONE():
 def test_BondOptionAmericanConvergenceTWO():
 
     # Build discount curve
-    settlement_date = Date(1, 12, 2019)
-    discount_curve = DiscountCurveFlat(settlement_date, 0.05)
+    settle_date = Date(1, 12, 2019)
+    discount_curve = DiscountCurveFlat(settle_date, 0.05)
 
     # Bond details
     issue_date = Date(1, 12, 2015)
-    maturity_date = settlement_date.add_tenor("10Y")
+    maturity_date = settle_date.add_tenor("10Y")
     coupon = 0.05
     freq_type = FrequencyTypes.SEMI_ANNUAL
-    accrual_type = DayCountTypes.ACT_ACT_ICMA
-    bond = Bond(issue_date, maturity_date, coupon, freq_type, accrual_type)
-    expiry_date = settlement_date.add_tenor("18m")
+    dc_type = DayCountTypes.ACT_ACT_ICMA
+    bond = Bond(issue_date, maturity_date, coupon, freq_type, dc_type)
+    expiry_date = settle_date.add_tenor("18m")
     face = 100.0
 
     spotValue = bond.clean_price_from_discount_curve(
-        settlement_date, discount_curve)
+        settle_date, discount_curve)
     testCases.header("LABEL", "VALUE")
     testCases.print("BOND PRICE", spotValue)
 
@@ -328,28 +329,28 @@ def test_BondOptionAmericanConvergenceTWO():
 
         start = time.time()
 
-        europeanCallBondOption = BondOption(bond, expiry_date, K, face,
+        europeanCallBondOption = BondOption(bond, expiry_date, K,
                                             OptionTypes.EUROPEAN_CALL)
 
-        v_ec = europeanCallBondOption.value(settlement_date, discount_curve,
+        v_ec = europeanCallBondOption.value(settle_date, discount_curve,
                                             hwModel)
 
-        americanCallBondOption = BondOption(bond, expiry_date, K, face,
+        americanCallBondOption = BondOption(bond, expiry_date, K,
                                             OptionTypes.AMERICAN_CALL)
 
-        v_ac = americanCallBondOption.value(settlement_date, discount_curve,
+        v_ac = americanCallBondOption.value(settle_date, discount_curve,
                                             hwModel)
 
-        europeanPutBondOption = BondOption(bond, expiry_date, K, face,
+        europeanPutBondOption = BondOption(bond, expiry_date, K,
                                            OptionTypes.EUROPEAN_PUT)
 
-        v_ep = europeanPutBondOption.value(settlement_date, discount_curve,
+        v_ep = europeanPutBondOption.value(settle_date, discount_curve,
                                            hwModel)
 
-        americanPutBondOption = BondOption(bond, expiry_date, K, face,
+        americanPutBondOption = BondOption(bond, expiry_date, K,
                                            OptionTypes.AMERICAN_PUT)
 
-        v_ap = americanPutBondOption.value(settlement_date, discount_curve,
+        v_ap = americanPutBondOption.value(settle_date, discount_curve,
                                            hwModel)
 
         end = time.time()
@@ -377,18 +378,18 @@ def test_BondOptionAmericanConvergenceTWO():
 def test_BondOptionZEROVOLConvergence():
 
     # Build discount curve
-    settlement_date = Date(1, 9, 2019)
+    settle_date = Date(1, 9, 2019)
     rate = 0.05
     discount_curve = DiscountCurveFlat(
-        settlement_date, rate, FrequencyTypes.ANNUAL)
+        settle_date, rate, FrequencyTypes.ANNUAL)
 
     # Bond details
     issue_date = Date(1, 9, 2014)
     maturity_date = Date(1, 9, 2025)
     coupon = 0.06
     freq_type = FrequencyTypes.ANNUAL
-    accrual_type = DayCountTypes.ACT_ACT_ICMA
-    bond = Bond(issue_date, maturity_date, coupon, freq_type, accrual_type)
+    dc_type = DayCountTypes.ACT_ACT_ICMA
+    bond = Bond(issue_date, maturity_date, coupon, freq_type, dc_type)
 
     # Option Details
     expiry_date = Date(1, 12, 2021)
@@ -397,13 +398,13 @@ def test_BondOptionZEROVOLConvergence():
     dfExpiry = discount_curve.df(expiry_date)
     fwdCleanValue = bond.clean_price_from_discount_curve(
         expiry_date, discount_curve)
-#    fwdFullValue = bond.full_price_from_discount_curve(expiry_date, discount_curve)
+#    fwdFullValue = bond.dirty_price_from_discount_curve(expiry_date, discount_curve)
 #    print("BOND FwdCleanBondPx", fwdCleanValue)
 #    print("BOND FwdFullBondPx", fwdFullValue)
 #    print("BOND Accrued:", bond._accrued_interest)
 
     spotCleanValue = bond.clean_price_from_discount_curve(
-        settlement_date, discount_curve)
+        settle_date, discount_curve)
 
     testCases.header("STRIKE", "STEPS",
                      "CALL_INT", "CALL_INT_PV", "CALL_EUR", "CALL_AMER",
@@ -427,23 +428,23 @@ def test_BondOptionZEROVOLConvergence():
 
             option_type = OptionTypes.EUROPEAN_CALL
             bond_option1 = BondOption(
-                bond, expiry_date, strike_price, face, option_type)
-            v1 = bond_option1.value(settlement_date, discount_curve, model)
+                bond, expiry_date, strike_price, option_type)
+            v1 = bond_option1.value(settle_date, discount_curve, model)
 
             option_type = OptionTypes.AMERICAN_CALL
             bond_option2 = BondOption(
-                bond, expiry_date, strike_price, face, option_type)
-            v2 = bond_option2.value(settlement_date, discount_curve, model)
+                bond, expiry_date, strike_price, option_type)
+            v2 = bond_option2.value(settle_date, discount_curve, model)
 
             option_type = OptionTypes.EUROPEAN_PUT
             bond_option3 = BondOption(
-                bond, expiry_date, strike_price, face, option_type)
-            v3 = bond_option3.value(settlement_date, discount_curve, model)
+                bond, expiry_date, strike_price, option_type)
+            v3 = bond_option3.value(settle_date, discount_curve, model)
 
             option_type = OptionTypes.AMERICAN_PUT
             bond_option4 = BondOption(
-                bond, expiry_date, strike_price, face, option_type)
-            v4 = bond_option4.value(settlement_date, discount_curve, model)
+                bond, expiry_date, strike_price, option_type)
+            v4 = bond_option4.value(settle_date, discount_curve, model)
 
             testCases.print(strike_price, num_steps,
                             callIntrinsic, callIntrinsicPV, v1, v2,
@@ -456,59 +457,60 @@ def test_BondOptionDerivaGem():
 
     # See https://github.com/domokane/FinancePy/issues/98
 
-    settlement_date = Date(1, 12, 2019)
+    settle_date = Date(1, 12, 2019)
 
     rate = 0.05
     dcType = DayCountTypes.THIRTY_360_BOND
     fixedFreq = FrequencyTypes.SEMI_ANNUAL
     discount_curve = DiscountCurveFlat(
-        settlement_date, rate, fixedFreq, dcType)
+        settle_date, rate, fixedFreq, dcType)
 
     issue_date = Date(1, 12, 2018)
-    expiry_date = settlement_date.add_tenor("18m")
-    maturity_date = settlement_date.add_tenor("10Y")
+    expiry_date = settle_date.add_tenor("18m")
+    maturity_date = settle_date.add_tenor("10Y")
 
     coupon = 0.05
-    freqType = FrequencyTypes.SEMI_ANNUAL
-    accrualType = DayCountTypes.THIRTY_360_BOND
-    bond = Bond(issue_date, maturity_date, coupon, freqType, accrualType)
+    freq_type = FrequencyTypes.SEMI_ANNUAL
+    accrual_type = DayCountTypes.THIRTY_360_BOND
+    bond = Bond(issue_date, maturity_date, coupon, freq_type,  accrual_type)
     strike_price = 100.0
     face = 100.0
 
-    europeanCallBondOption = BondOption(bond, expiry_date, strike_price, face,
+    europeanCallBondOption = BondOption(bond, expiry_date, strike_price,
                                         OptionTypes.EUROPEAN_CALL)
-    cp = bond.clean_price_from_discount_curve(expiry_date, discount_curve)
-    fp = bond.full_price_from_discount_curve(expiry_date, discount_curve)
-#    print("Fixed Income Clean Price: %9.3f"% cp)
-#    print("Fixed Income Full  Price: %9.3f"% fp)
+
+    # cp = bond.clean_price_from_discount_curve(expiry_date, discount_curve)
+    # fp = bond.dirty_price_from_discount_curve(expiry_date, discount_curve)
+    #    print("Fixed Income Clean Price: %9.3f"% cp)
+    #    print("Fixed Income Full  Price: %9.3f"% fp)
 
     num_steps = 500
     sigma = 0.0125
     a = 0.1
     modelHW = HWTree(sigma, a, num_steps)
 
-    ec = europeanCallBondOption.value(settlement_date, discount_curve, modelHW)
+    # ec = europeanCallBondOption.value(settle_date, discount_curve, modelHW)
 
     ###########################################################################
 
     couponTimes = []
     couponFlows = []
-    cpn = bond._coupon/bond._frequency
+    cpn = bond._cpn / bond._freq
 
-    numFlows = len(bond._coupon_dates)
+    numFlows = len(bond._cpn_dates)
     for i in range(0, numFlows):
 
-        pcd = bond._coupon_dates[i-1]
-        ncd = bond._coupon_dates[i]
+        pcd = bond._cpn_dates[i-1]
+        ncd = bond._cpn_dates[i]
 
-        if ncd > settlement_date:
+        if ncd > settle_date:
 
             if len(couponTimes) == 0:
-                flowTime = (pcd - settlement_date) / gDaysInYear
+                flowTime = (pcd - settle_date) / gDaysInYear
                 couponTimes.append(flowTime)
                 couponFlows.append(cpn)
 
-            flowTime = (ncd - settlement_date) / gDaysInYear
+            flowTime = (ncd - settle_date) / gDaysInYear
             couponTimes.append(flowTime)
             couponFlows.append(cpn)
 
@@ -524,11 +526,11 @@ def test_BondOptionDerivaGem():
     model = HWTree(sigma, a, None)
 
     #  Test convergence
-    texp = (expiry_date - settlement_date)/gDaysInYear
-    tmat = (maturity_date - settlement_date)/gDaysInYear
+    t_exp = (expiry_date - settle_date)/gDaysInYear
+    tmat = (maturity_date - settle_date)/gDaysInYear
 
     # Jamshidian approach
-    vjam = model.european_bond_option_jamshidian(texp, strike_price, face,
+    vjam = model.european_bond_option_jamshidian(t_exp, strike_price, face,
                                                  couponTimes, couponFlows,
                                                  times, dfs)
     # print("Jamshidian:", vjam)
@@ -537,7 +539,7 @@ def test_BondOptionDerivaGem():
     model.build_tree(tmat, times, dfs)
     exerciseType = FinExerciseTypes.EUROPEAN
 
-    vHW = model.bond_option(texp, strike_price, face,
+    vHW = model.bond_option(t_exp, strike_price, face,
                             couponTimes, couponFlows, exerciseType)
 
     # print("Full Tree:", vHW)

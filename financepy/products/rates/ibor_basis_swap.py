@@ -31,7 +31,7 @@ class IborBasisSwap:
 
     def __init__(self,
                  effective_date: Date,  # Date interest starts to accrue
-                 termination_date_or_tenor: (Date, str),  # Date contract ends
+                 term_date_or_tenor: (Date, str),  # Date contract ends
                  leg1Type: SwapTypes,
                  leg1FreqType: FrequencyTypes = FrequencyTypes.QUARTERLY,
                  leg1DayCountType: DayCountTypes = DayCountTypes.THIRTY_E_360,
@@ -40,11 +40,11 @@ class IborBasisSwap:
                  leg2DayCountType: DayCountTypes = DayCountTypes.THIRTY_E_360,
                  leg2Spread: float = 0.0,
                  notional: float = ONE_MILLION,
-                 calendar_type: CalendarTypes = CalendarTypes.WEEKEND,
-                 bus_day_adjust_type: BusDayAdjustTypes = BusDayAdjustTypes.FOLLOWING,
-                 date_gen_rule_type: DateGenRuleTypes = DateGenRuleTypes.BACKWARD):
+                 cal_type: CalendarTypes = CalendarTypes.WEEKEND,
+                 bd_type: BusDayAdjustTypes = BusDayAdjustTypes.FOLLOWING,
+                 dg_type: DateGenRuleTypes = DateGenRuleTypes.BACKWARD):
         """ Create a Ibor basis swap contract giving the contract start
-        date, its maturity, frequency and day counts on the two floating 
+        date, its maturity, frequency and day counts on the two floating
         legs and notional. The floating leg parameters have default
         values that can be overwritten if needed. The start date is contractual
         and is the same as the settlement date for a new swap. It is the date
@@ -54,15 +54,15 @@ class IborBasisSwap:
 
         check_argument_types(self.__init__, locals())
 
-        if type(termination_date_or_tenor) == Date:
-            self._termination_date = termination_date_or_tenor
+        if type(term_date_or_tenor) == Date:
+            self._termination_date = term_date_or_tenor
         else:
             self._termination_date = effective_date.add_tenor(
-                termination_date_or_tenor)
+                term_date_or_tenor)
 
-        calendar = Calendar(calendar_type)
+        calendar = Calendar(cal_type)
         self._maturity_date = calendar.adjust(self._termination_date,
-                                              bus_day_adjust_type)
+                                              bd_type)
 
         if effective_date > self._maturity_date:
             raise FinError("Start date after maturity date")
@@ -83,9 +83,9 @@ class IborBasisSwap:
                                        notional,
                                        principal,
                                        payment_lag,
-                                       calendar_type,
-                                       bus_day_adjust_type,
-                                       date_gen_rule_type)
+                                       cal_type,
+                                       bd_type,
+                                       dg_type)
 
         self._floatLeg2 = SwapFloatLeg(effective_date,
                                        self._termination_date,
@@ -96,14 +96,14 @@ class IborBasisSwap:
                                        notional,
                                        principal,
                                        payment_lag,
-                                       calendar_type,
-                                       bus_day_adjust_type,
-                                       date_gen_rule_type)
+                                       cal_type,
+                                       bd_type,
+                                       dg_type)
 
 ###############################################################################
 
     def value(self,
-              valuation_date: Date,
+              value_date: Date,
               discount_curve: DiscountCurve,
               index_curveLeg1: DiscountCurve = None,
               index_curveLeg2: DiscountCurve = None,
@@ -118,12 +118,12 @@ class IborBasisSwap:
         if index_curveLeg2 is None:
             index_curveLeg2 = discount_curve
 
-        floatLeg1Value = self._floatLeg1.value(valuation_date,
+        floatLeg1Value = self._floatLeg1.value(value_date,
                                                discount_curve,
                                                index_curveLeg1,
                                                firstFixingRateLeg1)
 
-        floatLeg2Value = self._floatLeg2.value(valuation_date,
+        floatLeg2Value = self._floatLeg2.value(value_date,
                                                discount_curve,
                                                index_curveLeg2,
                                                firstFixingRateLeg2)
@@ -149,7 +149,7 @@ class IborBasisSwap:
 
 ###############################################################################
 
-    def print_flows(self):
+    def print_payments(self):
         """ Prints the fixed leg amounts without any valuation details. Shows
         the dates and sizes of the promised fixed leg flows. """
 

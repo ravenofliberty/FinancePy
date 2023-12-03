@@ -147,7 +147,7 @@ class EquityOneTouchOption(EquityOption):
 ###############################################################################
 
     def value(self,
-              valuation_date: Date,
+              value_date: Date,
               stock_price: (float, np.ndarray),
               discount_curve: DiscountCurve,
               dividend_curve: DiscountCurve,
@@ -158,21 +158,21 @@ class EquityOneTouchOption(EquityOption):
 
         DEBUG_MODE = False
 
-        if isinstance(valuation_date, Date) is False:
+        if isinstance(value_date, Date) is False:
             raise FinError("Valuation date is not a Date")
 
-        if valuation_date > self._expiry_date:
+        if value_date > self._expiry_date:
             raise FinError("Valuation date after expiry date.")
 
-        if discount_curve._valuation_date != valuation_date:
+        if discount_curve._value_date != value_date:
             raise FinError(
                 "Discount Curve date not same as option valuation date")
 
-        if dividend_curve._valuation_date != valuation_date:
+        if dividend_curve._value_date != value_date:
             raise FinError(
                 "Dividend Curve date not same as option valuation date")
 
-        t = (self._expiry_date - valuation_date) / gDaysInYear
+        t = (self._expiry_date - value_date) / gDaysInYear
         t = max(t, 1e-6)
 
         s0 = stock_price
@@ -211,8 +211,7 @@ class EquityOneTouchOption(EquityOption):
             eta = 1.0
             z = np.log(H/s0) / v / sqrtT + lam * v * sqrtT
             A5_1 = np.power(H/s0, mu + lam) * n_vect(eta * z)
-            A5_2 = np.power(H/s0, mu - lam) * n_vect(eta *
-                                                     z - 2.0 * eta * lam * v * sqrtT)
+            A5_2 = np.power(H/s0, mu - lam) * n_vect(eta * z - 2.0 * eta * lam * v * sqrtT)
             v = (A5_1 + A5_2) * K
             return v
 
@@ -225,8 +224,7 @@ class EquityOneTouchOption(EquityOption):
             eta = -1.0
             z = np.log(H/s0) / v / sqrtT + lam * v * sqrtT
             A5_1 = np.power(H/s0, mu + lam) * n_vect(eta * z)
-            A5_2 = np.power(H/s0, mu - lam) * n_vect(eta *
-                                                     z - 2.0 * eta * lam * v * sqrtT)
+            A5_2 = np.power(H/s0, mu - lam) * n_vect(eta * z - 2.0 * eta * lam * v * sqrtT)
             v = (A5_1 + A5_2) * K
             return v
 
@@ -240,8 +238,7 @@ class EquityOneTouchOption(EquityOption):
             K = H
             z = np.log(H/s0) / v / sqrtT + lam * v * sqrtT
             A5_1 = np.power(H/s0, mu + lam) * n_vect(eta * z)
-            A5_2 = np.power(H/s0, mu - lam) * n_vect(eta *
-                                                     z - 2.0 * eta * lam * v * sqrtT)
+            A5_2 = np.power(H/s0, mu - lam) * n_vect(eta * z - 2.0 * eta * lam * v * sqrtT)
             v = (A5_1 + A5_2) * K
             return v
 
@@ -255,8 +252,7 @@ class EquityOneTouchOption(EquityOption):
             K = H
             z = np.log(H/s0) / v / sqrtT + lam * v * sqrtT
             A5_1 = np.power(H/s0, mu + lam) * n_vect(eta * z)
-            A5_2 = np.power(H/s0, mu - lam) * n_vect(eta *
-                                                     z - 2.0 * eta * lam * v * sqrtT)
+            A5_2 = np.power(H/s0, mu - lam) * n_vect(eta * z - 2.0 * eta * lam * v * sqrtT)
             v = (A5_1 + A5_2) * K
             return v
 
@@ -401,7 +397,7 @@ class EquityOneTouchOption(EquityOption):
 ###############################################################################
 
     def value_mc(self,
-                 valuation_date: Date,
+                 value_date: Date,
                  stock_price: float,
                  discount_curve: DiscountCurve,
                  dividend_curve: DiscountCurve,
@@ -414,7 +410,7 @@ class EquityOneTouchOption(EquityOption):
         result as we only observe the barrier a finite number of times. The
         convergence is slow. """
 
-        t = (self._expiry_date - valuation_date) / gDaysInYear
+        t = (self._expiry_date - value_date) / gDaysInYear
 
         df = discount_curve.df(self._expiry_date)
         r = -np.log(df)/t

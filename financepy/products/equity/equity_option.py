@@ -31,7 +31,7 @@ class EquityOption:
 ###############################################################################
 
     def value(self,
-              valuation_date: Date,
+              value_date: Date,
               stock_price: float,
               discount_curve: DiscountCurve,
               dividend_yield: float,
@@ -43,18 +43,20 @@ class EquityOption:
 ###############################################################################
 
     def delta(self,
-              valuation_date: Date,
+              value_date: Date,
               stock_price: float,
               discount_curve: DiscountCurve,
               dividend_curve: DiscountCurve,
               model):
         """ Calculation of option delta by perturbation of stock price and
         revaluation. """
-        v = self.value(valuation_date, stock_price, discount_curve,
+        v = self.value(value_date, stock_price, discount_curve,
                        dividend_curve, model)
 
-        vBumped = self.value(valuation_date, stock_price + bump, discount_curve,
-                             dividend_curve, model)
+        vBumped = self.value(value_date, stock_price + bump,
+                             discount_curve,
+                             dividend_curve,
+                             model)
 
         delta = (vBumped - v) / bump
         return delta
@@ -62,7 +64,7 @@ class EquityOption:
 ###############################################################################
 
     def gamma(self,
-              valuation_date: Date,
+              value_date: Date,
               stock_price: float,
               discount_curve: DiscountCurve,
               dividend_curve: DiscountCurve,
@@ -70,13 +72,15 @@ class EquityOption:
         """ Calculation of option gamma by perturbation of stock price and
         revaluation. """
 
-        v = self.value(valuation_date, stock_price, discount_curve,
+        v = self.value(value_date, stock_price, discount_curve,
                        dividend_curve, model)
 
-        vBumpedDn = self.value(valuation_date, stock_price - bump, discount_curve,
+        vBumpedDn = self.value(value_date, stock_price - bump,
+                               discount_curve,
                                dividend_curve, model)
 
-        vBumpedUp = self.value(valuation_date, stock_price + bump, discount_curve,
+        vBumpedUp = self.value(value_date, stock_price + bump,
+                               discount_curve,
                                dividend_curve, model)
 
         gamma = (vBumpedUp - 2.0 * v + vBumpedDn) / bump / bump
@@ -85,7 +89,7 @@ class EquityOption:
 ###############################################################################
 
     def vega(self,
-             valuation_date: Date,
+             value_date: Date,
              stock_price: float,
              discount_curve: DiscountCurve,
              dividend_curve: DiscountCurve,
@@ -93,22 +97,22 @@ class EquityOption:
         """ Calculation of option vega by perturbing vol and revaluation. """
 
         bump = 0.01
-        
-        v = self.value(valuation_date, stock_price, discount_curve,
+
+        v = self.value(value_date, stock_price, discount_curve,
                        dividend_curve, model)
 
         model = BlackScholes(model._volatility + bump)
 
-        vBumped = self.value(valuation_date, stock_price, discount_curve,
+        vBumped = self.value(value_date, stock_price, discount_curve,
                              dividend_curve, model)
 
-        vega = (vBumped - v) # / bump
+        vega = (vBumped - v)
         return vega
 
 ##############################################################################
 
     def vanna(self,
-              valuation_date: Date,
+              value_date: Date,
               stock_price: float,
               discount_curve: DiscountCurve,
               dividend_curve: DiscountCurve,
@@ -116,7 +120,7 @@ class EquityOption:
         """ Calculation of option vanna by perturbing delta with respect to the
         stock price volatility. """
 
-        delta = self.delta(valuation_date,
+        delta = self.delta(value_date,
                            stock_price,
                            discount_curve,
                            dividend_curve,
@@ -124,7 +128,7 @@ class EquityOption:
 
         model = BlackScholes(model._volatility + bump)
 
-        deltaBumped = self.delta(valuation_date,
+        deltaBumped = self.delta(value_date,
                                  stock_price,
                                  discount_curve,
                                  dividend_curve,
@@ -136,33 +140,33 @@ class EquityOption:
 ###############################################################################
 
     def theta(self,
-              valuation_date: Date,
+              value_date: Date,
               stock_price: float,
               discount_curve: DiscountCurve,
               dividend_curve: DiscountCurve,
               model):
-        """ Calculation of option theta by perturbing value date by one 
-        calendar date (not a business date) and then doing revaluation and 
+        """ Calculation of option theta by perturbing value date by one
+        calendar date (not a business date) and then doing revaluation and
         calculating the difference divided by dt = 1 / gDaysInYear. """
 
-        v = self.value(valuation_date, stock_price,
+        v = self.value(value_date, stock_price,
                        discount_curve,
                        dividend_curve, model)
 
-        next_date = valuation_date.add_days(1)
+        next_date = value_date.add_days(1)
 
         # Need to do this carefully. This is a bit hacky.
-        discount_curve._valuation_date = next_date
-        dividend_curve._valuation_date = next_date
-        bump = (next_date - valuation_date) / gDaysInYear
+        discount_curve._value_date = next_date
+        dividend_curve._value_date = next_date
+        bump = (next_date - value_date) / gDaysInYear
 
         vBumped = self.value(next_date, stock_price,
                              discount_curve,
                              dividend_curve, model)
 
         # restore valuation dates
-        discount_curve._valuation_date = valuation_date
-        dividend_curve._valuation_date = valuation_date
+        discount_curve._value_date = value_date
+        dividend_curve._value_date = value_date
 
         theta = (vBumped - v) / bump
         return theta
@@ -170,7 +174,7 @@ class EquityOption:
 ###############################################################################
 
     def rho(self,
-            valuation_date: Date,
+            value_date: Date,
             stock_price: float,
             discount_curve: DiscountCurve,
             dividend_curve: DiscountCurve,
@@ -178,10 +182,10 @@ class EquityOption:
         """ Calculation of option rho by perturbing interest rate and
         revaluation. """
 
-        v = self.value(valuation_date, stock_price, discount_curve,
+        v = self.value(value_date, stock_price, discount_curve,
                        dividend_curve, model)
 
-        vBumped = self.value(valuation_date,
+        vBumped = self.value(value_date,
                              stock_price,
                              discount_curve.bump(bump),
                              dividend_curve, model)

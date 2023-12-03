@@ -11,7 +11,7 @@ from financepy.products.credit.cds_option import CDSOption
 tradeDate = Date(5, 2, 2014)
 _, issuer_curve = buildFullIssuerCurve(tradeDate)
 step_in_date = tradeDate.add_days(1)
-valuation_date = step_in_date
+value_date = step_in_date
 expiry_date = Date(20, 3, 2014)
 maturity_date = Date(20, 6, 2019)
 notional = 100.0
@@ -21,9 +21,9 @@ def test_cds_option():
     volatility = 0.3
 
     strike_result = [
-        (100, 3.9975),
-        (150, 1.5867),
-        (200, 0.0956),
+        (100, 4.0007),
+        (150, 1.5874),
+        (200, 0.0955),
         (300, 0.0)
     ]
 
@@ -33,11 +33,11 @@ def test_cds_option():
                               strike / 10000.0,
                               notional)
 
-        v = cdsOption.value(valuation_date,
+        v = cdsOption.value(value_date,
                             issuer_curve,
                             volatility)
 
-        vol = cdsOption.implied_volatility(valuation_date,
+        vol = cdsOption.implied_volatility(value_date,
                                            issuer_curve,
                                            v)
 

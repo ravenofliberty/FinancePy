@@ -60,7 +60,7 @@ class FXBarrierOption(FXOption):
     ##########################################################################
 
     def value(self,
-              valuation_date,
+              value_date,
               spot_fx_rate,
               dom_discount_curve,
               for_discount_curve,
@@ -72,37 +72,37 @@ class FXBarrierOption(FXOption):
         # by Clewlow, Llanos and Strickland December 1994 which can be found at
         # https://warwick.ac.uk/fac/soc/wbs/subjects/finance/research/wpaperseries/1994/94-54.pdf
 
-        if isinstance(valuation_date, Date) == False:
+        if isinstance(value_date, Date) is False:
             raise FinError("Valuation date is not a Date")
 
-        if valuation_date > self._expiry_date:
+        if value_date > self._expiry_date:
             raise FinError("Valuation date after expiry date.")
 
-        if dom_discount_curve._valuation_date != valuation_date:
+        if dom_discount_curve._value_date != value_date:
             raise FinError(
-                "Domestic Curve valuation date not same as option valuation date")
+                "Domestic Curve valuation date not same as option value date")
 
-        if for_discount_curve._valuation_date != valuation_date:
+        if for_discount_curve._value_date != value_date:
             raise FinError(
-                "Foreign Curve valuation date not same as option valuation date")
+                "Foreign Curve valuation date not same as option value date")
 
         K = self._strike_fx_rate
         S0 = spot_fx_rate
         h = self._barrier_level
 
-        t = (self._expiry_date - valuation_date) / gDaysInYear
+        t = (self._expiry_date - value_date) / gDaysInYear
         lnS0k = log(float(S0) / K)
         sqrtT = sqrt(t)
 
         dq = for_discount_curve._df(t)
         df = dom_discount_curve._df(t)
-        rd = -log(df) / t
+        r_d = -log(df) / t
         rf = -log(dq) / t
 
         volatility = model._volatility
         sigmaRootT = volatility * sqrtT
         v2 = volatility * volatility
-        mu = rd - rf
+        mu = r_d - rf
         d1 = (lnS0k + (mu + v2 / 2.0) * t) / sigmaRootT
         d2 = (lnS0k + (mu - v2 / 2.0) * t) / sigmaRootT
 
@@ -252,10 +252,10 @@ class FXBarrierOption(FXOption):
 
         return price
 
-    ###############################################################################
+    ###########################################################################
 
     def value_mc(self,
-                 valuation_date,
+                 value_date,
                  spot_fx_rate,
                  dom_interest_rate,
                  process_type,
@@ -265,7 +265,7 @@ class FXBarrierOption(FXOption):
                  seed=4242):
         """ Value the FX Barrier Option using Monte Carlo. """
 
-        t = (self._expiry_date - valuation_date) / gDaysInYear
+        t = (self._expiry_date - value_date) / gDaysInYear
         num_time_steps = int(t * num_ann_steps)
         K = self._strike_fx_rate
         B = self._barrier_level
@@ -274,7 +274,7 @@ class FXBarrierOption(FXOption):
 
         process = FinProcessSimulator()
 
-        rd = dom_interest_rate
+        r_d = dom_interest_rate
 
         #######################################################################
 
@@ -308,13 +308,13 @@ class FXBarrierOption(FXOption):
         if simple_call:
             sT = Sall[:, -1]
             c = (np.maximum(sT - K, 0.0)).mean()
-            c = c * exp(-rd * t)
+            c = c * exp(-r_d * t)
             return c
 
         if simple_put:
             sT = Sall[:, -1]
             p = (np.maximum(K - sT, 0.0)).mean()
-            p = p * exp(-rd * t)
+            p = p * exp(-r_d * t)
             return p
 
         # Get full set of paths
@@ -373,7 +373,7 @@ class FXBarrierOption(FXOption):
             raise FinError("Unknown barrier option type." +
                            str(self._option_type))
 
-        v = payoff.mean() * exp(-rd * t)
+        v = payoff.mean() * exp(-r_d * t)
 
         return v
 

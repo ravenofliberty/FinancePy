@@ -25,10 +25,10 @@ def fvol(volatility, *args):
     volatility. """
 
     self = args[0]
-    valuation_date = args[1]
+    value_date = args[1]
     issuer_curve = args[2]
     option_value = args[3]
-    value = self.value(valuation_date, issuer_curve, volatility)
+    value = self.value(value_date, issuer_curve, volatility)
     obj_fn = value - option_value
     return obj_fn
 
@@ -52,10 +52,10 @@ class CDSOption:
                  long_protection: bool = True,
                  knockout_flag: bool = True,
                  freq_type: FrequencyTypes = FrequencyTypes.QUARTERLY,
-                 day_count_type: DayCountTypes = DayCountTypes.ACT_360,
-                 calendar_type: CalendarTypes = CalendarTypes.WEEKEND,
-                 bus_day_adjust_type: BusDayAdjustTypes = BusDayAdjustTypes.FOLLOWING,
-                 date_gen_rule_type: DateGenRuleTypes = DateGenRuleTypes.BACKWARD):
+                 dc_type: DayCountTypes = DayCountTypes.ACT_360,
+                 cal_type: CalendarTypes = CalendarTypes.WEEKEND,
+                 bd_type: BusDayAdjustTypes = BusDayAdjustTypes.FOLLOWING,
+                 dg_type: DateGenRuleTypes = DateGenRuleTypes.BACKWARD):
         """ Create a FinCDSOption object with the option expiry date, the
         maturity date of the underlying CDS, the option strike coupon,
         notional, whether the option knocks out or not in the event of a credit
@@ -77,22 +77,22 @@ class CDSOption:
         self._notional = notional
 
         self._freq_type = freq_type
-        self._day_count_type = day_count_type
-        self._calendar_type = calendar_type
-        self._businessDateAdjustType = bus_day_adjust_type
-        self._date_gen_rule_type = date_gen_rule_type
+        self._dc_type = dc_type
+        self._cal_type = cal_type
+        self._businessDateAdjustType = bd_type
+        self._dg_type = dg_type
 
 ###############################################################################
 
     def value(self,
-              valuation_date,
+              value_date,
               issuer_curve,
               volatility):
         """ Value the CDS option using Black's model with an adjustment for any
         Front End Protection.
         TODO - Should the CDS be created in the init method ? """
 
-        if valuation_date > self._expiry_date:
+        if value_date > self._expiry_date:
             raise FinError("Expiry date is now or in the past")
 
         if volatility < 0.0:
@@ -107,17 +107,17 @@ class CDSOption:
                   self._notional,
                   self._long_protection,
                   self._freq_type,
-                  self._day_count_type,
-                  self._calendar_type,
+                  self._dc_type,
+                  self._cal_type,
                   self._businessDateAdjustType,
-                  self._date_gen_rule_type)
+                  self._dg_type)
 
         strike = self._strike_coupon
-        forward_spread = cds.par_spread(valuation_date, issuer_curve)
+        forward_spread = cds.par_spread(value_date, issuer_curve)
         forward_rpv01 = cds.risky_pv01(
-            valuation_date, issuer_curve)['full_rpv01']
+            value_date, issuer_curve)['dirty_rpv01']
 
-        time_to_expiry = (self._expiry_date - valuation_date) / gDaysInYear
+        time_to_expiry = (self._expiry_date - value_date) / gDaysInYear
         logMoneyness = log(forward_spread / strike)
 
         halfVolSquaredT = 0.5 * volatility * volatility * time_to_expiry
@@ -149,11 +149,11 @@ class CDSOption:
 ###############################################################################
 
     def implied_volatility(self,
-                           valuation_date,
+                           value_date,
                            issuer_curve,
                            option_value):
         """ Calculate the implied CDS option volatility from a price. """
-        arg_tuple = (self, valuation_date, issuer_curve, option_value)
+        arg_tuple = (self, value_date, issuer_curve, option_value)
         sigma = optimize.newton(fvol, x0=0.3, args=arg_tuple, tol=1e-6,
                                 maxiter=50)
         return sigma

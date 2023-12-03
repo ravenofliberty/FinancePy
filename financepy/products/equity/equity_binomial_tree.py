@@ -33,7 +33,7 @@ class EquityTreeExerciseTypes(Enum):
 ###############################################################################
 
 
-@jit
+@njit
 def _validate_payoff(payoff_type, payoff_params):
 
     num_params = 0
@@ -147,8 +147,8 @@ def _value_once(stock_price,
 
     for iNode in range(0, iTime + 1):
         s = stock_values[index + iNode]
-        option_values[index +
-                      iNode] = _payoff_value(s, payoff_typeValue, payoff_params)
+        option_values[index + iNode] =\
+            _payoff_value(s, payoff_typeValue, payoff_params)
 
     # begin backward steps from expiry
     for iTime in range(num_steps - 1, -1, -1):
@@ -208,7 +208,7 @@ class EquityBinomialTree():
               dividend_curve,
               volatility,
               num_steps,
-              valuation_date,
+              value_date,
               payoff,
               expiry_date,
               payoff_type,
@@ -216,18 +216,18 @@ class EquityBinomialTree():
               payoff_params):
 
         # do some validation
-        texp = (expiry_date - valuation_date) / gDaysInYear
+        t_exp = (expiry_date - value_date) / gDaysInYear
         r = discount_curve.zero_rate(expiry_date)
 
         dq = dividend_curve.df(expiry_date)
-        q = -np.log(dq)/texp
+        q = -np.log(dq)/t_exp
 
         price1 = _value_once(stock_price,
                              r,
                              q,
                              volatility,
                              num_steps,
-                             texp,
+                             t_exp,
                              payoff_type,
                              exercise_type,
                              payoff_params)
@@ -238,7 +238,7 @@ class EquityBinomialTree():
                              q,
                              volatility,
                              num_steps + 1,
-                             texp,
+                             t_exp,
                              payoff_type,
                              exercise_type,
                              payoff_params)

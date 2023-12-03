@@ -34,10 +34,10 @@ def tr_surv_prob_lhp(k1,
 
     p = 0.0
     portfolioEL = 0.0
-    for iCredit in range(0, num_credits):
-        pd = (1.0 - survival_probabilities[iCredit])
+    for i_credit in range(0, num_credits):
+        pd = (1.0 - survival_probabilities[i_credit])
         p += pd
-        portfolioEL += pd * (1.0 - recovery_rates[iCredit])
+        portfolioEL += pd * (1.0 - recovery_rates[i_credit])
 
     if p == 0.0:
         return 1.0
@@ -55,7 +55,8 @@ def tr_surv_prob_lhp(k1,
 
 
 @njit(fastmath=True, cache=True)
-def portfolio_cdf_lhp(k, num_credits, qvector, recovery_rates, beta, num_points):
+def portfolio_cdf_lhp(k, num_credits, qvector, recovery_rates,
+                      beta, num_points):
 
     p = 0.0
     portfolioEL = 0.0

@@ -17,7 +17,7 @@ def test_bond_future_1():
     bond = Bond(issue_date, Date(15, 8, 2011), 0.0500, freq, basis)
 
     assert bond._maturity_date == Date(15, 8, 2011)
-    assert bond._coupon * 100 == 5.0
+    assert bond._cpn * 100 == 5.0
 
     first_delivery_date = Date(1, 3, 2002)
     last_delivery_date = Date(28, 3, 2002)
@@ -38,10 +38,10 @@ def test_bond_future_2():
     bond = Bond(issue_date, Date(15, 8, 2027), 0.0225, freq, basis)
     assert bond._maturity_date == Date(15, 8, 2027)
 
-    settlement_date = Date(10, 10, 2017)
+    settle_date = Date(10, 10, 2017)
     price = 99 + 1 / 32
 
-    yld = bond.yield_to_maturity(settlement_date, price)
+    yld = bond.yield_to_maturity(settle_date, price)
 
     assert round(yld, 4) == 0.0236
 
@@ -67,12 +67,14 @@ def test_bond_future_2():
     assert round(pip, 4) == 9162291.0800
 
     tia = bondFutureContract.total_invoice_amount(
-        settlement_date, bond, futures_price)
+        settle_date, bond, futures_price)
 
-    assert round(tia, 4) == 9162633.4700
+    assert round(tia, 4) == 9162294.5
 
+###############################################################################
 
 def test_future_bond_ctd():
+
     first_delivery_date = Date(1, 12, 2017)
     last_delivery_date = Date(28, 12, 2017)
 
@@ -137,4 +139,4 @@ def test_future_bond_ctd():
                                                  prices,
                                                  futures_price)
 
-    assert round(ctd._coupon, 4) == 0.0238
+    assert round(ctd._cpn, 4) == 0.0238

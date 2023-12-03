@@ -47,7 +47,7 @@ class FXFixedLookbackOption:
 ##########################################################################
 
     def value(self,
-              valuation_date: Date,
+              value_date: Date,
               stock_price: float,
               dom_discount_curve: DiscountCurve,
               for_discount_curve: DiscountCurve,
@@ -56,21 +56,21 @@ class FXFixedLookbackOption:
         """ Value FX Fixed Lookback Option using Black Scholes model and
         analytical formulae. """
 
-        if isinstance(valuation_date, Date) == False:
+        if isinstance(value_date, Date) is False:
             raise FinError("Valuation date is not a Date")
 
-        if valuation_date > self._expiry_date:
+        if value_date > self._expiry_date:
             raise FinError("Valuation date after expiry date.")
 
-        if dom_discount_curve._valuation_date != valuation_date:
+        if dom_discount_curve._value_date != value_date:
             raise FinError(
-                "Domestic Curve valuation date not same as option valuation date")
+                "Domestic Curve valuation date not same as option value date")
 
-        if for_discount_curve._valuation_date != valuation_date:
+        if for_discount_curve._value_date != value_date:
             raise FinError(
-                "Foreign Curve valuation date not same as option valuation date")
+                "Foreign Curve valuation date not same as option value date")
 
-        t = (self._expiry_date - valuation_date) / gDaysInYear
+        t = (self._expiry_date - value_date) / gDaysInYear
 
         df = dom_discount_curve.df(self._expiry_date)
         r = -np.log(df)/t
@@ -178,7 +178,7 @@ class FXFixedLookbackOption:
 ###############################################################################
 
     def value_mc(self,
-                 valuation_date: Date,
+                 value_date: Date,
                  spot_fx_rate: float,  # FORDOM
                  domestic_curve: DiscountCurve,
                  foreign_curve: DiscountCurve,
@@ -189,16 +189,16 @@ class FXFixedLookbackOption:
                  seed: int = 4242):
         """ Value FX Fixed Lookback option using Monte Carlo. """
 
-        t = (self._expiry_date - valuation_date) / gDaysInYear
+        t = (self._expiry_date - value_date) / gDaysInYear
         S0 = spot_fx_rate
 
         df = domestic_curve._df(t)
-        rd = -np.log(df)/t
+        r_d = -np.log(df)/t
 
         dq = foreign_curve._df(t)
-        rf = -np.log(dq)/t
+        r_f = -np.log(dq)/t
 
-        mu = rd - rf
+        mu = r_d - r_f
 
         num_time_steps = int(t * num_steps_per_year)
 
@@ -246,5 +246,5 @@ class FXFixedLookbackOption:
         else:
             raise FinError("Unknown lookback option type:" + str(option_type))
 
-        v = payoff.mean() * exp(-rd*t)
+        v = payoff.mean() * exp(-r_d*t)
         return v

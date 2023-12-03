@@ -2,7 +2,7 @@
 # Copyright (C) 2018, 2019, 2020 Dominic O'Kane
 ###############################################################################
 
-from financepy.models.volatility_fns import VolFunctionTypes
+from financepy.models.volatility_fns import VolFuncTypes
 from financepy.utils.date import Date
 from financepy.market.volatility.fx_vol_surface import FinFXDeltaMethod
 from financepy.market.volatility.fx_vol_surface import FinFXATMMethod
@@ -17,15 +17,15 @@ def test_FinFXMktVolSurface1(capsys):
     # Example from Book extract by Iain Clarke using Tables 3.3 and 3.4
     # print("EURUSD EXAMPLE CLARK")
 
-    valuation_date = Date(10, 4, 2020)
+    value_date = Date(10, 4, 2020)
 
     forName = "EUR"
     domName = "USD"
     forCCRate = 0.03460  # EUR
     domCCRate = 0.02940  # USD
 
-    dom_discount_curve = DiscountCurveFlat(valuation_date, domCCRate)
-    for_discount_curve = DiscountCurveFlat(valuation_date, forCCRate)
+    dom_discount_curve = DiscountCurveFlat(value_date, domCCRate)
+    for_discount_curve = DiscountCurveFlat(value_date, forCCRate)
 
     currency_pair = forName + domName
     spot_fx_rate = 1.3465
@@ -38,10 +38,10 @@ def test_FinFXMktVolSurface1(capsys):
     notional_currency = forName
 
     atmMethod = FinFXATMMethod.FWD_DELTA_NEUTRAL
-    deltaMethod = FinFXDeltaMethod.SPOT_DELTA
-    vol_functionType = VolFunctionTypes.CLARK
+    delta_method = FinFXDeltaMethod.SPOT_DELTA
+    vol_functionType = VolFuncTypes.CLARK
 
-    fxMarket = FXVolSurface(valuation_date,
+    fxMarket = FXVolSurface(value_date,
                             spot_fx_rate,
                             currency_pair,
                             notional_currency,
@@ -52,7 +52,7 @@ def test_FinFXMktVolSurface1(capsys):
                             marketStrangle25DeltaVols,
                             riskReversal25DeltaVols,
                             atmMethod,
-                            deltaMethod,
+                            delta_method,
                             vol_functionType)
 
     fxMarket.check_calibration(verboseCalibration, tol=1e-5)
@@ -64,15 +64,15 @@ def test_FinFXMktVolSurface2(capsys):
     # Example from Book extract by Iain Clark using Tables 3.3 and 3.4
     # print("EURJPY EXAMPLE CLARK")
 
-    valuation_date = Date(10, 4, 2020)
+    value_date = Date(10, 4, 2020)
 
     forName = "EUR"
     domName = "JPY"
     forCCRate = 0.0294  # EUR
     domCCRate = 0.0171  # USD
 
-    dom_discount_curve = DiscountCurveFlat(valuation_date, domCCRate)
-    for_discount_curve = DiscountCurveFlat(valuation_date, forCCRate)
+    dom_discount_curve = DiscountCurveFlat(value_date, domCCRate)
+    for_discount_curve = DiscountCurveFlat(value_date, forCCRate)
 
     currency_pair = forName + domName
     spot_fx_rate = 90.72
@@ -85,9 +85,9 @@ def test_FinFXMktVolSurface2(capsys):
     notional_currency = forName
 
     atmMethod = FinFXATMMethod.FWD_DELTA_NEUTRAL_PREM_ADJ
-    deltaMethod = FinFXDeltaMethod.SPOT_DELTA_PREM_ADJ
+    delta_method = FinFXDeltaMethod.SPOT_DELTA_PREM_ADJ
 
-    fxMarket = FXVolSurface(valuation_date,
+    fxMarket = FXVolSurface(value_date,
                             spot_fx_rate,
                             currency_pair,
                             notional_currency,
@@ -98,7 +98,7 @@ def test_FinFXMktVolSurface2(capsys):
                             marketStrangle25DeltaVols,
                             riskReversal25DeltaVols,
                             atmMethod,
-                            deltaMethod)
+                            delta_method)
 
     fxMarket.check_calibration(verboseCalibration, tol=0.0005)
     captured = capsys.readouterr()
@@ -109,15 +109,15 @@ def test_FinFXMktVolSurface3(capsys):
     # EURUSD Example from Paper by Uwe Wystup using Tables 4
     #        print("EURUSD EXAMPLE WYSTUP")
 
-    valuation_date = Date(20, 1, 2009)
+    value_date = Date(20, 1, 2009)
 
     forName = "EUR"
     domName = "USD"
     forCCRate = 0.020113  # EUR
     domCCRate = 0.003525  # USD
 
-    dom_discount_curve = DiscountCurveFlat(valuation_date, domCCRate)
-    for_discount_curve = DiscountCurveFlat(valuation_date, forCCRate)
+    dom_discount_curve = DiscountCurveFlat(value_date, domCCRate)
+    for_discount_curve = DiscountCurveFlat(value_date, forCCRate)
 
     currency_pair = forName + domName
     spot_fx_rate = 1.3088
@@ -130,9 +130,9 @@ def test_FinFXMktVolSurface3(capsys):
     notional_currency = forName
 
     atmMethod = FinFXATMMethod.FWD_DELTA_NEUTRAL
-    deltaMethod = FinFXDeltaMethod.SPOT_DELTA
+    delta_method = FinFXDeltaMethod.SPOT_DELTA
 
-    fxMarket = FXVolSurface(valuation_date,
+    fxMarket = FXVolSurface(value_date,
                             spot_fx_rate,
                             currency_pair,
                             notional_currency,
@@ -143,7 +143,7 @@ def test_FinFXMktVolSurface3(capsys):
                             marketStrangle25DeltaVols,
                             riskReversal25DeltaVols,
                             atmMethod,
-                            deltaMethod)
+                            delta_method)
 
     fxMarket.check_calibration(verboseCalibration)
     captured = capsys.readouterr()
@@ -153,15 +153,15 @@ def test_FinFXMktVolSurface3(capsys):
 def test_FinFXMktVolSurface4(capsys):
     # USDJPY Example from Paper by Uwe Wystup using Tables 4
 
-    valuation_date = Date(20, 1, 2009)
+    value_date = Date(20, 1, 2009)
 
     forName = "USD"
     domName = "JPY"
     forCCRate = 0.003525  # USD
     domCCRate = 0.0042875  # JPY
 
-    dom_discount_curve = DiscountCurveFlat(valuation_date, domCCRate)
-    for_discount_curve = DiscountCurveFlat(valuation_date, forCCRate)
+    dom_discount_curve = DiscountCurveFlat(value_date, domCCRate)
+    for_discount_curve = DiscountCurveFlat(value_date, forCCRate)
 
     currency_pair = forName + domName
     spot_fx_rate = 90.68
@@ -174,9 +174,9 @@ def test_FinFXMktVolSurface4(capsys):
     notional_currency = forName
 
     atmMethod = FinFXATMMethod.FWD_DELTA_NEUTRAL
-    deltaMethod = FinFXDeltaMethod.SPOT_DELTA_PREM_ADJ
+    delta_method = FinFXDeltaMethod.SPOT_DELTA_PREM_ADJ
 
-    fxMarket = FXVolSurface(valuation_date,
+    fxMarket = FXVolSurface(value_date,
                             spot_fx_rate,
                             currency_pair,
                             notional_currency,
@@ -187,7 +187,7 @@ def test_FinFXMktVolSurface4(capsys):
                             marketStrangle25DeltaVols,
                             riskReversal25DeltaVols,
                             atmMethod,
-                            deltaMethod)
+                            delta_method)
 
     fxMarket.check_calibration(verboseCalibration)
     captured = capsys.readouterr()

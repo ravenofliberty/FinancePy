@@ -2,6 +2,9 @@
 # Copyright (C) 2018, 2019, 2020 Dominic O'Kane
 ###############################################################################
 
+import matplotlib.pyplot as plt
+import time
+
 import sys
 sys.path.append("..")
 
@@ -16,10 +19,6 @@ from financepy.utils.day_count import DayCountTypes
 from financepy.utils.frequency import FrequencyTypes
 from financepy.utils.date import Date
 from financepy.utils.global_types import SwapTypes
-import matplotlib.pyplot as plt
-import time
-
-
 
 testCases = FinTestCases(__file__, globalTestCaseMode)
 
@@ -35,22 +34,22 @@ def test_BondEmbeddedOptionMATLAB():
     # FOUND BY MATLAB ALTHOUGH THEY DO NOT EXAMINE THE ASYMPTOTIC PRICE
     # WHICH MIGHT BE A BETTER MATCH
 
-    settlement_date = Date(1, 1, 2007)
-    valuation_date = settlement_date
+    settle_date = Date(1, 1, 2007)
+    value_date = settle_date
 
     ###########################################################################
 
     dcType = DayCountTypes.THIRTY_E_360
     fixedFreq = FrequencyTypes.ANNUAL
     fixed_leg_type = SwapTypes.PAY
-    swap1 = IborSwap(settlement_date, "1Y", fixed_leg_type,
+    swap1 = IborSwap(settle_date, "1Y", fixed_leg_type,
                      0.0350, fixedFreq, dcType)
-    swap2 = IborSwap(settlement_date, "2Y", fixed_leg_type,
+    swap2 = IborSwap(settle_date, "2Y", fixed_leg_type,
                      0.0400, fixedFreq, dcType)
-    swap3 = IborSwap(settlement_date, "3Y", fixed_leg_type,
+    swap3 = IborSwap(settle_date, "3Y", fixed_leg_type,
                      0.0450, fixedFreq, dcType)
     swaps = [swap1, swap2, swap3]
-    discount_curve = IborSingleCurve(valuation_date, [], [], swaps)
+    discount_curve = IborSingleCurve(value_date, [], [], swaps)
 
     ###########################################################################
 
@@ -59,8 +58,8 @@ def test_BondEmbeddedOptionMATLAB():
 
     coupon = 0.0525
     freq_type = FrequencyTypes.ANNUAL
-    accrual_type = DayCountTypes.ACT_ACT_ICMA
-    bond = Bond(issue_date, maturity_date, coupon, freq_type, accrual_type)
+    dc_type = DayCountTypes.ACT_ACT_ICMA
+    bond = Bond(issue_date, maturity_date, coupon, freq_type, dc_type)
 
     call_dates = []
     call_prices = []
@@ -74,7 +73,7 @@ def test_BondEmbeddedOptionMATLAB():
         putDate = putDate.add_months(1)
 
     testCases.header("BOND PRICE", "PRICE")
-    v = bond.clean_price_from_discount_curve(settlement_date, discount_curve)
+    v = bond.clean_price_from_discount_curve(settle_date, discount_curve)
     testCases.print("Bond Pure Price:", v)
 
     sigma = 0.01  # basis point volatility
@@ -82,7 +81,7 @@ def test_BondEmbeddedOptionMATLAB():
 
     puttableBond = BondEmbeddedOption(issue_date,
                                       maturity_date, coupon,
-                                      freq_type, accrual_type,
+                                      freq_type, dc_type,
                                       call_dates, call_prices,
                                       put_dates, put_prices)
 
@@ -93,7 +92,7 @@ def test_BondEmbeddedOptionMATLAB():
     for num_time_steps in timeSteps:
         model = HWTree(sigma, a, num_time_steps)
         start = time.time()
-        v = puttableBond.value(settlement_date, discount_curve, model)
+        v = puttableBond.value(settle_date, discount_curve, model)
         end = time.time()
         period = end - start
         testCases.print(period, num_time_steps, v['bondwithoption'],
@@ -115,12 +114,12 @@ def test_BondEmbeddedOptionQUANTLIB():
     # 68.38 found in blog article. But this is for 40 grid points.
     # Note also that a basis point vol of 0.120 is 12% which is VERY HIGH!
 
-    valuation_date = Date(16, 8, 2016)
-    settlement_date = valuation_date.add_weekdays(3)
+    value_date = Date(16, 8, 2016)
+    settle_date = value_date.add_weekdays(3)
 
     ###########################################################################
 
-    discount_curve = DiscountCurveFlat(valuation_date, 0.035,
+    discount_curve = DiscountCurveFlat(value_date, 0.035,
                                        FrequencyTypes.SEMI_ANNUAL)
 
     ###########################################################################
@@ -129,8 +128,8 @@ def test_BondEmbeddedOptionQUANTLIB():
     maturity_date = Date(15, 9, 2022)
     coupon = 0.025
     freq_type = FrequencyTypes.QUARTERLY
-    accrual_type = DayCountTypes.ACT_ACT_ICMA
-    bond = Bond(issue_date, maturity_date, coupon, freq_type, accrual_type)
+    dc_type = DayCountTypes.ACT_ACT_ICMA
+    bond = Bond(issue_date, maturity_date, coupon, freq_type, dc_type)
 
     ###########################################################################
     # Set up the call and put times and prices
@@ -154,12 +153,12 @@ def test_BondEmbeddedOptionQUANTLIB():
 
     puttableBond = BondEmbeddedOption(issue_date,
                                       maturity_date, coupon,
-                                      freq_type, accrual_type,
+                                      freq_type, dc_type,
                                       call_dates, call_prices,
                                       put_dates, put_prices)
 
     testCases.header("BOND PRICE", "PRICE")
-    v = bond.clean_price_from_discount_curve(settlement_date, discount_curve)
+    v = bond.clean_price_from_discount_curve(settle_date, discount_curve)
     testCases.print("Bond Pure Price:", v)
 
     testCases.header("TIME", "NumTimeSteps", "BondWithOption", "BondPure")
@@ -168,7 +167,7 @@ def test_BondEmbeddedOptionQUANTLIB():
     for num_time_steps in timeSteps:
         model = HWTree(sigma, a, num_time_steps)
         start = time.time()
-        v = puttableBond.value(settlement_date, discount_curve, model)
+        v = puttableBond.value(settle_date, discount_curve, model)
         end = time.time()
         period = end - start
         testCases.print(period, num_time_steps,

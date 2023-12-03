@@ -17,11 +17,11 @@ import os
 import numpy as np
 
 
-def test_full_priceCDSIndexOption():
+def test_dirty_priceCDSIndexOption():
 
     tradeDate = Date(1, 8, 2007)
     step_in_date = tradeDate.add_days(1)
-    valuation_date = step_in_date
+    value_date = step_in_date
 
     libor_curve = build_Ibor_Curve(tradeDate)
 
@@ -40,7 +40,6 @@ def test_full_priceCDSIndexOption():
     for row in data[1:]:
 
         splitRow = row.split(",")
-        creditName = splitRow[0]
         spd3Y = float(splitRow[1]) / 10000.0
         spd5Y = float(splitRow[2]) / 10000.0
         spd7Y = float(splitRow[3]) / 10000.0
@@ -53,7 +52,7 @@ def test_full_priceCDSIndexOption():
         cds10Y = CDS(step_in_date, maturity10Y, spd10Y)
         cds_contracts = [cds3Y, cds5Y, cds7Y, cds10Y]
 
-        issuer_curve = CDSCurve(valuation_date,
+        issuer_curve = CDSCurve(value_date,
                                 cds_contracts,
                                 libor_curve,
                                 recovery_rate)
@@ -63,11 +62,11 @@ def test_full_priceCDSIndexOption():
     ##########################################################################
     ##########################################################################
 
-    indexUpfronts = [0.0, 0.0, 0.0, 0.0]
-    indexMaturityDates = [Date(20, 12, 2009),
-                          Date(20, 12, 2011),
-                          Date(20, 12, 2013),
-                          Date(20, 12, 2016)]
+    index_upfronts = [0.0, 0.0, 0.0, 0.0]
+    index_maturity_dates = [Date(20, 12, 2009),
+                            Date(20, 12, 2011),
+                            Date(20, 12, 2013),
+                            Date(20, 12, 2016)]
     indexRecovery = 0.40
 
     index_coupon = 0.004
@@ -78,9 +77,9 @@ def test_full_priceCDSIndexOption():
     tolerance = 1e-6
 
     index_strike_results = [
-        (20.0, 20.0, [16.1, 6.2, -70.7, 22.9, -60.6, 16.1, 6.1]),
-        (25.0, 30.0, [11.9, 16.8, -35.3, 28.6, -40.3, 11.9, 16.7]),
-        (50.0, 40.0, [63.6, 4.6, 0.0, 57.4, 60.5, 63.4, 4.6]),
+        (20.0, 20.0, [16.0, 6.2, -70.8, 22.9, -60.8, 16.1, 6.1]),
+        (25.0, 30.0, [11.8, 16.9, -35.3, 28.6, -40.5, 11.8, 16.8]),
+        (50.0, 40.0, [63.3, 4.7, 0.0, 57.3, 60.2, 63.2, 4.7]),
     ]
 
     for index, strike, results in index_strike_results:
@@ -88,22 +87,22 @@ def test_full_priceCDSIndexOption():
         #######################################################################
 
         cds_contracts = []
-        for dt in indexMaturityDates:
-            cds = CDS(valuation_date, dt, index / 10000.0)
+        for dt in index_maturity_dates:
+            cds = CDS(value_date, dt, index / 10000.0)
             cds_contracts.append(cds)
 
-        index_curve = CDSCurve(valuation_date, cds_contracts,
+        index_curve = CDSCurve(value_date, cds_contracts,
                                libor_curve, indexRecovery)
 
         indexSpreads = [index / 10000.0] * 4
 
         indexPortfolio = CDSIndexPortfolio()
         adjustedIssuerCurves = indexPortfolio.hazard_rate_adjust_intrinsic(
-            valuation_date,
+            value_date,
             issuer_curves,
             indexSpreads,
-            indexUpfronts,
-            indexMaturityDates,
+            index_upfronts,
+            index_maturity_dates,
             indexRecovery,
             tolerance)
 
@@ -115,10 +114,10 @@ def test_full_priceCDSIndexOption():
                                 strike / 10000.0,
                                 notional)
 
-        v_pay_1, v_rec_1, strikeValue, mu, expH = option.value_anderson(
-            valuation_date, adjustedIssuerCurves, indexRecovery, volatility)
+        v_pay_1, v_rec_1, strike_value, mu, expH = option.value_anderson(
+            value_date, adjustedIssuerCurves, indexRecovery, volatility)
 
-        v_pay_2, v_rec_2 = option.value_adjusted_black(valuation_date,
+        v_pay_2, v_rec_2 = option.value_adjusted_black(value_date,
                                                        index_curve,
                                                        indexRecovery,
                                                        libor_curve,
@@ -126,7 +125,7 @@ def test_full_priceCDSIndexOption():
 
         assert round(v_pay_1, 1) == results[0]
         assert round(v_rec_1, 1) == results[1]
-        assert round(strikeValue, 1) == results[2]
+        assert round(strike_value, 1) == results[2]
         assert round(mu, 1) == results[3]
         assert round(expH, 1) == results[4]
         assert round(v_pay_2, 1) == results[5]

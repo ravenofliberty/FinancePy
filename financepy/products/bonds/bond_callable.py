@@ -51,12 +51,11 @@ class BondEmbeddedOption:
                  maturity_date: Date,  # Date
                  coupon: float,  # Annualised coupon - 0.03 = 3.00%
                  freq_type: FrequencyTypes,
-                 accrual_type: DayCountTypes,
+                 dc_type: DayCountTypes,
                  call_dates: List[Date],
                  call_prices: List[float],
                  put_dates: List[Date],
-                 put_prices: List[float],
-                 face_amount: float = 100.0):
+                 put_prices: List[float]):
         """ Create a BondEmbeddedOption object with a maturity date, coupon
         and all of the bond inputs. """
 
@@ -64,16 +63,18 @@ class BondEmbeddedOption:
 
         self._issue_date = issue_date
         self._maturity_date = maturity_date
-        self._coupon = coupon
+        self._cpn = coupon
         self._freq_type = freq_type
-        self._accrual_type = accrual_type
+        self._dc_type = dc_type
+
+        ex_div_days = 0
 
         self._bond = Bond(issue_date,
                           maturity_date,
                           coupon,
                           freq_type,
-                          accrual_type,
-                          face_amount)
+                          dc_type,
+                          ex_div_days)
 
         # Validate call and put schedules
         for dt in call_dates:
@@ -118,13 +119,13 @@ class BondEmbeddedOption:
         self._call_prices = call_prices
         self._put_dates = put_dates
         self._put_prices = put_prices
-        self._face_amount = face_amount
-        self._bond._calculate_coupon_dates()
+        self._par = 100.0
+        self._bond._calculate_cpn_dates()
 
 ###############################################################################
 
     def value(self,
-              settlement_date: Date,
+              settle_date: Date,
               discount_curve: DiscountCurve,
               model):
         """ Value the bond that settles on the specified date that can have
@@ -132,13 +133,14 @@ class BondEmbeddedOption:
         model and a discount curve. """
 
         # Generate bond coupon flow schedule
-        cpn = self._bond._coupon/self._bond._frequency
+        cpn = self._bond._cpn/self._bond._freq
+
         cpn_times = []
         cpn_amounts = []
 
-        for flow_date in self._bond._coupon_dates[1:]:
-            if flow_date > settlement_date:
-                cpn_time = (flow_date - settlement_date) / gDaysInYear
+        for flow_date in self._bond._cpn_dates[1:]:
+            if flow_date > settle_date:
+                cpn_time = (flow_date - settle_date) / gDaysInYear
                 cpn_times.append(cpn_time)
                 cpn_amounts.append(cpn)
 
@@ -148,8 +150,8 @@ class BondEmbeddedOption:
         # Generate bond call times and prices
         call_times = []
         for dt in self._call_dates:
-            if dt > settlement_date:
-                call_time = (dt - settlement_date) / gDaysInYear
+            if dt > settle_date:
+                call_time = (dt - settle_date) / gDaysInYear
                 call_times.append(call_time)
         call_times = np.array(call_times)
         call_prices = np.array(self._call_prices)
@@ -157,18 +159,18 @@ class BondEmbeddedOption:
         # Generate bond put times and prices
         put_times = []
         for dt in self._put_dates:
-            if dt > settlement_date:
-                put_time = (dt - settlement_date) / gDaysInYear
+            if dt > settle_date:
+                put_time = (dt - settle_date) / gDaysInYear
                 put_times.append(put_time)
         put_times = np.array(put_times)
         put_prices = np.array(self._put_prices)
 
         maturity_date = self._bond._maturity_date
-        tmat = (maturity_date - settlement_date) / gDaysInYear
+        tmat = (maturity_date - settle_date) / gDaysInYear
         df_times = discount_curve._times
         df_values = discount_curve._dfs
 
-        face_amount = self._bond._face_amount
+        face_amount = self._par
 
         if isinstance(model, HWTree):
 
@@ -222,13 +224,14 @@ class BondEmbeddedOption:
 ###############################################################################
 
     def __repr__(self):
+
         s = label_to_string("OBJECT TYPE", type(self).__name__)
         s += label_to_string("ISSUE DATE", self._issue_date)
         s += label_to_string("MATURITY DATE", self._maturity_date)
-        s += label_to_string("COUPON", self._coupon)
+        s += label_to_string("COUPON", self._cpn)
         s += label_to_string("FREQUENCY", self._freq_type)
-        s += label_to_string("ACCRUAL TYPE", self._accrual_type)
-        s += label_to_string("FACE AMOUNT", self._face_amount)
+        s += label_to_string("DAY COUNT TYPE", self._dc_type)
+        s += label_to_string("EX-DIV DAYS", self._ex_div_days)
 
         s += label_to_string("NUM CALL DATES", len(self._call_dates))
         for i in range(0, len(self._call_dates)):

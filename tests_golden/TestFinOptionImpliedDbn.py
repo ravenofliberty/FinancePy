@@ -27,15 +27,15 @@ def test_FinOptionImpliedDbn():
         # Example from Book extract by Iain Clark using Tables 3.3 and 3.4
         # print("EURUSD EXAMPLE CLARK")
 
-        valuation_date = Date(10, 4, 2020)
+        value_date = Date(10, 4, 2020)
 
         forName = "EUR"
         domName = "USD"
         forCCRate = 0.03460  # EUR
         domCCRate = 0.02940  # USD
 
-        dom_discount_curve = DiscountCurveFlat(valuation_date, domCCRate)
-        for_discount_curve = DiscountCurveFlat(valuation_date, forCCRate)
+        dom_discount_curve = DiscountCurveFlat(value_date, domCCRate)
+        for_discount_curve = DiscountCurveFlat(value_date, forCCRate)
 
         currency_pair = forName + domName
         spot_fx_rate = 1.3465
@@ -48,9 +48,9 @@ def test_FinOptionImpliedDbn():
         notional_currency = forName
 
         atmMethod = FinFXATMMethod.FWD_DELTA_NEUTRAL
-        deltaMethod = FinFXDeltaMethod.SPOT_DELTA
+        delta_method = FinFXDeltaMethod.SPOT_DELTA
 
-        fxMarket = FXVolSurface(valuation_date,
+        fxMarket = FXVolSurface(value_date,
                                 spot_fx_rate,
                                 currency_pair,
                                 notional_currency,
@@ -61,7 +61,7 @@ def test_FinOptionImpliedDbn():
                                 marketStrangle25DeltaVols,
                                 riskReversal25DeltaVols,
                                 atmMethod,
-                                deltaMethod)
+                                delta_method)
 
 #        fxMarket.check_calibration(True)
 
@@ -72,7 +72,7 @@ def test_FinOptionImpliedDbn():
         for iTenor in range(0, len(fxMarket._tenors)):
 
             F = fxMarket._F0T[iTenor]
-            texp = fxMarket._texp[iTenor]
+            t_exp = fxMarket._t_exp[iTenor]
 
             startFX = F * 0.05
             endFX = F * 5.0
@@ -80,11 +80,11 @@ def test_FinOptionImpliedDbn():
             num_steps = 10000
             dFX = (endFX - startFX) / num_steps
 
-            domDF = dom_discount_curve._df(texp)
-            forDF = for_discount_curve._df(texp)
+            domDF = dom_discount_curve._df(t_exp)
+            forDF = for_discount_curve._df(t_exp)
 
-            rd = -np.log(domDF) / texp
-            rf = -np.log(forDF) / texp
+            r_d = -np.log(domDF) / t_exp
+            r_f = -np.log(forDF) / t_exp
 
             params = fxMarket._parameters[iTenor]
 
@@ -93,14 +93,14 @@ def test_FinOptionImpliedDbn():
 
             for iK in range(0, num_steps):
                 strike = startFX + iK*dFX
-                vol = vol_function_clark(params, F, strike, texp)
+                vol = vol_function_clark(params, F, strike, t_exp)
                 strikes.append(strike)
                 vols.append(vol)
 
             strikes = np.array(strikes)
             vols = np.array(vols)
 
-#            dbn = optionImpliedDbn(spot_fx_rate, texp, rd, rf, strikes, vols)
+#            dbn = optionImpliedDbn(spot_fx_rate, t_exp, rd, rf, strikes, vols)
 #            print("SUM:", dbn.sum())
 #            plt.figure()
 #            plt.plot(dbn._x, dbn._densitydx)

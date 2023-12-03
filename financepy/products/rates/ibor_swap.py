@@ -39,18 +39,18 @@ class IborSwap:
 
     def __init__(self,
                  effective_date: Date,  # Date interest starts to accrue
-                 termination_date_or_tenor: (Date, str),  # Date contract ends
+                 term_date_or_tenor: (Date, str),  # Date contract ends
                  fixed_leg_type: SwapTypes,
                  fixed_coupon: float,  # Fixed coupon (annualised)
                  fixed_freq_type: FrequencyTypes,
-                 fixed_day_count_type: DayCountTypes,
+                 fixed_dc_type: DayCountTypes,
                  notional: float = ONE_MILLION,
                  float_spread: float = 0.0,
                  float_freq_type: FrequencyTypes = FrequencyTypes.QUARTERLY,
-                 float_day_count_type: DayCountTypes = DayCountTypes.THIRTY_E_360,
-                 calendar_type: CalendarTypes = CalendarTypes.WEEKEND,
-                 bus_day_adjust_type: BusDayAdjustTypes = BusDayAdjustTypes.FOLLOWING,
-                 date_gen_rule_type: DateGenRuleTypes = DateGenRuleTypes.BACKWARD):
+                 float_dc_type: DayCountTypes = DayCountTypes.THIRTY_E_360,
+                 cal_type: CalendarTypes = CalendarTypes.WEEKEND,
+                 bd_type: BusDayAdjustTypes = BusDayAdjustTypes.FOLLOWING,
+                 dg_type: DateGenRuleTypes = DateGenRuleTypes.BACKWARD):
         """ Create an interest rate swap contract giving the contract start
         date, its maturity, fixed coupon, fixed leg frequency, fixed leg day
         count convention and notional. The floating leg parameters have default
@@ -62,15 +62,15 @@ class IborSwap:
 
         check_argument_types(self.__init__, locals())
 
-        if type(termination_date_or_tenor) == Date:
-            self._termination_date = termination_date_or_tenor
+        if type(term_date_or_tenor) == Date:
+            self._termination_date = term_date_or_tenor
         else:
             self._termination_date = effective_date.add_tenor(
-                termination_date_or_tenor)
+                term_date_or_tenor)
 
-        calendar = Calendar(calendar_type)
+        calendar = Calendar(cal_type)
         self._maturity_date = calendar.adjust(self._termination_date,
-                                              bus_day_adjust_type)
+                                              bd_type)
 
         if effective_date > self._maturity_date:
             raise FinError("Start date after maturity date")
@@ -89,31 +89,31 @@ class IborSwap:
                                        fixed_leg_type,
                                        fixed_coupon,
                                        fixed_freq_type,
-                                       fixed_day_count_type,
+                                       fixed_dc_type,
                                        notional,
                                        principal,
                                        payment_lag,
-                                       calendar_type,
-                                       bus_day_adjust_type,
-                                       date_gen_rule_type)
+                                       cal_type,
+                                       bd_type,
+                                       dg_type)
 
         self._float_leg = SwapFloatLeg(effective_date,
                                        self._termination_date,
                                        float_leg_type,
                                        float_spread,
                                        float_freq_type,
-                                       float_day_count_type,
+                                       float_dc_type,
                                        notional,
                                        principal,
                                        payment_lag,
-                                       calendar_type,
-                                       bus_day_adjust_type,
-                                       date_gen_rule_type)
+                                       cal_type,
+                                       bd_type,
+                                       dg_type)
 
     ###########################################################################
 
     def value(self,
-              valuation_date: Date,
+              value_date: Date,
               discount_curve: DiscountCurve,
               index_curve: DiscountCurve = None,
               firstFixingRate=None):
@@ -123,10 +123,10 @@ class IborSwap:
         if index_curve is None:
             index_curve = discount_curve
 
-        fixed_leg_value = self._fixed_leg.value(valuation_date,
+        fixed_leg_value = self._fixed_leg.value(value_date,
                                                 discount_curve)
 
-        float_leg_value = self._float_leg.value(valuation_date,
+        float_leg_value = self._float_leg.value(value_date,
                                                 discount_curve,
                                                 index_curve,
                                                 firstFixingRate)
@@ -136,11 +136,11 @@ class IborSwap:
 
     ###########################################################################
 
-    def pv01(self, valuation_date, discount_curve):
+    def pv01(self, value_date, discount_curve):
         """ Calculate the value of 1 basis point coupon on the fixed leg. """
 
-        pv = self._fixed_leg.value(valuation_date, discount_curve)
-        pv01 = pv / self._fixed_leg._coupon / self._fixed_leg._notional
+        pv = self._fixed_leg.value(value_date, discount_curve)
+        pv01 = pv / self._fixed_leg._cpn / self._fixed_leg._notional
         # Needs to be positive even if it is a payer leg
         pv01 = np.abs(pv01)
         return pv01
@@ -148,7 +148,7 @@ class IborSwap:
     ###########################################################################
 
     def swap_rate(self,
-                  valuation_date: Date,
+                  value_date: Date,
                   discount_curve: DiscountCurve,
                   index_curve: DiscountCurve = None,
                   first_fixing: float = None):
@@ -161,15 +161,15 @@ class IborSwap:
         approach but in this case the first fixing on the floating leg is
         needed. """
 
-        pv01 = self.pv01(valuation_date, discount_curve)
+        pv01 = self.pv01(value_date, discount_curve)
 
         if abs(pv01) < gSmall:
             raise FinError("PV01 is zero. Cannot compute swap rate.")
 
-        if valuation_date < self._effective_date:
+        if value_date < self._effective_date:
             df0 = discount_curve.df(self._effective_date)
         else:
-            df0 = discount_curve.df(valuation_date)
+            df0 = discount_curve.df(value_date)
 
         float_leg_pv = 0.0
 
@@ -177,7 +177,7 @@ class IborSwap:
             df_t = discount_curve.df(self._maturity_date)
             float_leg_pv = (df0 - df_t)
         else:
-            float_leg_pv = self._float_leg.value(valuation_date,
+            float_leg_pv = self._float_leg.value(value_date,
                                                  discount_curve,
                                                  index_curve,
                                                  first_fixing)
@@ -190,7 +190,7 @@ class IborSwap:
     ###########################################################################
 
     def cash_settled_pv01(self,
-                          valuation_date,
+                          value_date,
                           flat_swap_rate,
                           frequency_type):
         """ Calculate the forward value of an annuity of a forward starting
@@ -206,12 +206,12 @@ class IborSwap:
         """ The swap may have started in the past but we can only value
         payments that have occurred after the valuation date. """
         start_index = 0
-        while self._fixed_leg._payment_dates[start_index] < valuation_date:
+        while self._fixed_leg._payment_dates[start_index] < value_date:
             start_index += 1
 
         """ If the swap has yet to settle then we do not include the
         start date of the swap as a coupon payment date. """
-        if valuation_date <= self._effective_date:
+        if value_date <= self._effective_date:
             start_index = 1
 
         """ Now PV fixed leg flows. """
@@ -243,7 +243,7 @@ class IborSwap:
 
     ###########################################################################
 
-    def print_flows(self):
+    def print_payments(self):
         """ Prints the fixed leg amounts without any valuation details. Shows
         the dates and sizes of the promised fixed leg flows. """
 

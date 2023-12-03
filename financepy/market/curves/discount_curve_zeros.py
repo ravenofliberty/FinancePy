@@ -32,11 +32,11 @@ class DiscountCurveZeros(DiscountCurve):
 ###############################################################################
 
     def __init__(self,
-                 valuation_date: Date,
+                 value_date: Date,
                  zero_dates: list,
                  zero_rates: (list, np.ndarray),
                  freq_type: FrequencyTypes = FrequencyTypes.ANNUAL,
-                 day_count_type: DayCountTypes = DayCountTypes.ACT_ACT_ISDA,
+                 dc_type: DayCountTypes = DayCountTypes.ACT_ACT_ISDA,
                  interp_type: InterpTypes = InterpTypes.FLAT_FWD_RATES):
         """ Create the discount curve from a vector of dates and zero rates
         factors. The first date is the curve anchor. Then a vector of zero
@@ -58,29 +58,29 @@ class DiscountCurveZeros(DiscountCurve):
         if freq_type not in FrequencyTypes:
             raise FinError("Unknown Frequency type " + str(freq_type))
 
-        if day_count_type not in DayCountTypes:
+        if dc_type not in DayCountTypes:
             raise FinError("Unknown Cap Floor DayCountRule type " +
-                           str(day_count_type))
+                           str(dc_type))
 
-        self._valuation_date = valuation_date
+        self._value_date = value_date
         self._freq_type = freq_type
-        self._day_count_type = day_count_type
+        self._dc_type = dc_type
         self._interp_type = interp_type
 
         self._zero_rates = np.array(zero_rates)
         self._zero_dates = zero_dates
 
         self._times = times_from_dates(
-            zero_dates, valuation_date, day_count_type)
+            zero_dates, value_date, dc_type)
 
         if test_monotonicity(self._times) is False:
             raise FinError("Times or dates are not sorted in increasing order")
 
-        dfs = self._zero_to_df(self._valuation_date,
+        dfs = self._zero_to_df(self._value_date,
                                self._zero_rates,
                                self._times,
                                self._freq_type,
-                               self._day_count_type)
+                               self._dc_type)
 
         self._dfs = np.array(dfs)
         self._interpolator = Interpolator(self._interp_type)
@@ -99,7 +99,7 @@ class DiscountCurveZeros(DiscountCurve):
 #             t = times[i]
 #             discount_factors[i] = discount_factors[i] * np.exp(-bump_size*t)
 
-#         discCurve = FinDiscountCurve(self._valuation_date, times,
+#         discCurve = FinDiscountCurve(self._value_date, times,
 #                                      discount_factors,
 #                                      self._interp_type)
 
@@ -110,9 +110,9 @@ class DiscountCurveZeros(DiscountCurve):
     def __repr__(self):
 
         s = label_to_string("OBJECT TYPE", type(self).__name__)
-        s += label_to_string("VALUATION DATE", self._valuation_date)
+        s += label_to_string("VALUATION DATE", self._value_date)
         s += label_to_string("FREQUENCY TYPE", (self._freq_type))
-        s += label_to_string("DAY COUNT TYPE", (self._day_count_type))
+        s += label_to_string("DAY COUNT TYPE", (self._dc_type))
         s += label_to_string("INTERP TYPE", (self._interp_type))
 
         s += label_to_string("DATES", "ZERO RATES")

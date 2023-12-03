@@ -4,6 +4,9 @@
 
 import numpy as np
 import time as time
+import sys
+sys.path.append("..")
+
 from financepy.market.volatility.ibor_cap_vol_curve import IborCapVolCurve
 from financepy.utils.date import Date
 from financepy.utils.day_count import DayCountTypes
@@ -26,9 +29,6 @@ from financepy.models.lmm_mc import lmm_fwd_fwd_correlation
 from financepy.models.lmm_mc import lmm_ratchet_caplet_pricer
 from financepy.models.lmm_mc import lmm_sticky_caplet_pricer
 from FinTestCases import FinTestCases, globalTestCaseMode
-import sys
-sys.path.append("..")
-
 
 testCases = FinTestCases(__file__, globalTestCaseMode)
 
@@ -50,14 +50,14 @@ def getCorrelationMatrix(numFwds, beta, dt):
 
 """ def getVolCurve(numFwds, dt, flatVol=None):
 
-    valuation_date = Date(1, 1, 2020)
+    value_date = Date(1, 1, 2020)
 
     capVolDates = []
     capletVolTenor = "1Y"
     num_periods = 10
-    capletDt = valuation_date
+    capletDt = value_date
 
-    capVolDates.append(valuation_date)
+    capVolDates.append(value_date)
     for _ in range(0, num_periods):
         capletDt = capletDt.add_tenor(capletVolTenor)
         capVolDates.append(capletDt)
@@ -71,11 +71,11 @@ def getCorrelationMatrix(numFwds, beta, dt):
         capVolatilities = np.array(capVolatilities)
         capVolatilities[0] = 0.0
 
-    day_count_type = DayCountTypes.ACT_ACT_ISDA
-    volCurve = IborCapVolCurve(valuation_date,
+    dc_type = DayCountTypes.ACT_ACT_ISDA
+    volCurve = IborCapVolCurve(value_date,
                                    capVolDates,
                                    capVolatilities,
-                                   day_count_type)
+                                   dc_type)
 
     zetas = np.zeros(numFwds)
     t = 0.0
@@ -104,9 +104,9 @@ def getForwardCurve(numFwds, r):
 # def test_Swaptions():
 
 #     dt = 0.5
-#     texp = 3.0
+#     t_exp = 3.0
 #     tmat = 10.0
-#     a = int(2*texp)
+#     a = int(2*t_exp)
 #     b = int(2*tmat)
 #     numFwds = 20
 #     taus = np.array([dt] * numFwds)
@@ -132,8 +132,8 @@ def getForwardCurve(numFwds, r):
 
 #     for iExp in range(1, 10):
 
-#         texp = float(iExp)
-#         a = int(2*texp)
+#         t_exp = float(iExp)
+#         a = int(2*t_exp)
 #         print(a, b)
 
 #         swaption_price1F = LMMSwaptionPricer(strike, a, b, num_paths,
@@ -147,39 +147,39 @@ def getForwardCurve(numFwds, r):
 #         swapVolSim1F = LMMSimSwaptionVol(a, b, fwd0, fwds1F, taus)
 #         swapVolSimNF = LMMSimSwaptionVol(a, b, fwd0, fwdsNF, taus)
 
-#         valuation_date = Date(1, 1, 2010)
-#         libor_curve = FinDiscountCurveFlat(valuation_date, r,
+#         value_date = Date(1, 1, 2010)
+#         libor_curve = FinDiscountCurveFlat(value_date, r,
 #                                           FrequencyTypes.QUARTERLY)
 
-#         settlement_date = valuation_date
-#         exercise_date = settlement_date.add_months(a*3)
-#         maturity_date = settlement_date.add_months(b*3)
+#         settle_date = value_date
+#         exercise_date = settle_date.add_months(a*3)
+#         maturity_date = settle_date.add_months(b*3)
 
 #         fixed_coupon = strike
 #         fixed_frequency_type = FrequencyTypes.QUARTERLY
-#         fixed_day_count_type = DayCountTypes.ACT_ACT_ISDA
+#         fixed_dc_type = DayCountTypes.ACT_ACT_ISDA
 #         float_frequency_type = FrequencyTypes.QUARTERLY
-#         float_day_count_type = DayCountTypes.ACT_ACT_ISDA
+#         float_dc_type = DayCountTypes.ACT_ACT_ISDA
 #         notional = 1.0
 
 #         # Pricing a PAY
 #         swaptionType = IborSwaptionTypes.PAY
-#         swaption = IborSwaption(settlement_date,
+#         swaption = IborSwaption(settle_date,
 #                                     exercise_date,
 #                                     maturity_date,
 #                                     swaptionType,
 #                                     fixed_coupon,
 #                                     fixed_frequency_type,
-#                                     fixed_day_count_type,
+#                                     fixed_dc_type,
 #                                     notional,
 #                                     float_frequency_type,
-#                                     float_day_count_type)
+#                                     float_dc_type)
 
 #         model = Black(swaptionVol)
-#         blackSwaptionPrice = swaption.value(valuation_date, libor_curve, model)
+#         blackSwaptionPrice = swaption.value(value_date, libor_curve, model)
 
-#         print("K:%6.5f texp:%8.2f FwdVol:%9.5f SimVol1F:%9.5f SimVolNF:%9.5f RebVol:%9.5f SimPx1F:%9.5f SimPxNF:%9.5f Black Px:%9.5f"
-#               % (strike, texp, fwd_rateVol, swapVolSim1F, swapVolSimNF, swaptionVol,
+#         print("K:%6.5f t_exp:%8.2f FwdVol:%9.5f SimVol1F:%9.5f SimVolNF:%9.5f RebVol:%9.5f SimPx1F:%9.5f SimPxNF:%9.5f Black Px:%9.5f"
+#               % (strike, t_exp, fwd_rateVol, swapVolSim1F, swapVolSimNF, swaptionVol,
 #                  swaption_price1F, swaption_priceNF, blackSwaptionPrice))
 
 # #        print(swaption)

@@ -3,10 +3,13 @@ from functools import partial
 
 import numpy as np
 
-from ..utils.math import band_matrix_multiplication, solve_tridiagonal_matrix, transpose_tridiagonal_matrix
+from ..utils.math import band_matrix_multiplication
+from ..utils.math import solve_tridiagonal_matrix
+from ..utils.math import transpose_tridiagonal_matrix
 from financepy.utils.global_types import OptionTypes
 
 
+# @njit
 def dx(x, wind=0):
     # Intermediate rows
     # Note: As first and last rows are handled separately
@@ -54,10 +57,7 @@ def dxx(x):
     dxl = (x - np.roll(x, 1))
     dxu = (np.roll(x, -1) - x)
     intermediate_rows = np.array(
-        [2 / dxl,
-        -(2 / dxl + 2 / dxu),
-        2 / dxu]
-    ) / (dxu + dxl)
+        [2 / dxl, -(2 / dxl + 2 / dxu), 2 / dxu]) / (dxu + dxl)
     out = intermediate_rows.T
 
     # First row
@@ -177,12 +177,16 @@ def smooth_call(xl, xu, strike):
     else:
         return 0.5 * (xu - strike) ** 2 / (xu - xl)
 
+###############################################################################
+
 
 def option_payoff(s, strike, smooth, dig, option_type):
+
     if isinstance(option_type, OptionTypes):
         option_type = option_type.value
 
-    # Generate middle values (i.e. not first or last, which are overwritten later)
+    # Generate middle values (i.e. not first or last, which are
+    # overwritten later)
     if not smooth:
         if dig:
             res = digital(s, strike)
@@ -202,22 +206,27 @@ def option_payoff(s, strike, smooth, dig, option_type):
         func = partial(func, strike=strike)
         res = list(map(func, sl, su))
 
-
     # Handle first and last values separately
     res[0] = digital(s[0], strike) if dig else max(0, s[0] - strike)
     res[-1] = digital(s[-1], strike) if dig else max(0, s[-1] - strike)
 
     # Invert for put options
-    if option_type in {OptionTypes.AMERICAN_PUT.value, OptionTypes.EUROPEAN_PUT.value}:
+    if option_type in {OptionTypes.AMERICAN_PUT.value,
+                       OptionTypes.EUROPEAN_PUT.value}:
         res = 1 - res if dig else res - (s - strike)
 
     return np.atleast_2d(res)
 
 
-def black_scholes_finite_difference(spot_price, volatility, time_to_expiry,
-                                    strike_price, risk_free_rate, dividend_yield, option_type,
-                                    num_time_steps=None, num_samples=2000, num_std=5, theta=0.5, wind=0, digital=False,
-                                    smooth=False, update=False):
+###############################################################################
+
+def black_scholes_fd(spot_price, volatility, time_to_expiry,
+                     strike_price, risk_free_rate,
+                     dividend_yield, option_type,
+                     num_time_steps=None, num_samples=2000,
+                     num_std=5, theta=0.5, wind=0,
+                     digital=False,
+                     smooth=False, update=False):
     if isinstance(option_type, OptionTypes):
         option_type = option_type.value
 
@@ -246,7 +255,6 @@ def black_scholes_finite_difference(spot_price, volatility, time_to_expiry,
     mu_ = mu * s
     var_ = (s * volatility) ** 2
 
-
     # Initialise implicit and explicit matricies
     Ai = np.array([])
     Ae = np.array([])
@@ -265,8 +273,8 @@ def black_scholes_finite_difference(spot_price, volatility, time_to_expiry,
 
         res = fd_roll_backwards(res, theta, Ai=Ai, Ae=Ae)
 
-
-        if option_type in {OptionTypes.AMERICAN_CALL.value, OptionTypes.AMERICAN_PUT.value}:
+        if option_type in {OptionTypes.AMERICAN_CALL.value,
+                           OptionTypes.AMERICAN_PUT.value}:
             idx = res[0] < payoff[0]
             res[0][idx] = payoff[0][idx]
 

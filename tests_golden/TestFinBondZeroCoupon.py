@@ -27,21 +27,22 @@ plotGraphs = False
 def test_bond_zero():
     issue_date = Date(25, 7, 2022)
     maturity_date = Date(24, 10, 2022)
-    face_amount = ONE_MILLION
+    face_amount = 100.0
     issue_price = 99.6410
 
     bond = BondZero(issue_date=issue_date,
                     maturity_date=maturity_date,
-                    face_amount=face_amount,
                     issue_price=issue_price)
 
-    settlement_date = Date(8, 8, 2022)
+    settle_date = Date(8, 8, 2022)
 
     clean_price = 99.6504
-    ytm = bond.yield_to_maturity(settlement_date,
+
+    ytm = bond.yield_to_maturity(settle_date,
                                  clean_price,
                                  YTMCalcType.ZERO)
-    accrued_interest = bond.calc_accrued_interest(settlement_date)
+
+    accrued_interest = bond.accrued_interest(settle_date, face_amount)
 
     testCases.header('YTM', 'accrued')
     testCases.print(ytm, accrued_interest)
@@ -61,8 +62,8 @@ def test_bond_zero_ror():
     for row in df.itertuples(index=False):
         buy_date = Date(row.buy_date.day, row.buy_date.month, row.buy_date.year)
         sell_date = Date(row.sell_date.day, row.sell_date.month, row.sell_date.year)
-        buy_price = bond.full_price_from_ytm(buy_date, row.buy_ytm, YTMCalcType.ZERO)
-        sell_price = bond.full_price_from_ytm(sell_date, row.sell_ytm, YTMCalcType.ZERO)
+        buy_price = bond.dirty_price_from_ytm(buy_date, row.buy_ytm, YTMCalcType.ZERO)
+        sell_price = bond.dirty_price_from_ytm(sell_date, row.sell_ytm, YTMCalcType.ZERO)
         simple, irr, pnl = bond.calc_ror(buy_date, sell_date, row.buy_ytm, row.sell_ytm)
         testCases.print(row.bond_code, buy_date, row.buy_ytm, buy_price, sell_date, row.sell_ytm, sell_price,
                         simple, irr)

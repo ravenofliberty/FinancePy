@@ -25,15 +25,14 @@ from ...utils.calendar import DateGenRuleTypes
 from ...market.curves.discount_curve import DiscountCurve
 from ...market.curves.interpolator import InterpTypes, _uinterpolate
 
-
 ###############################################################################
 
 
 @njit(fastmath=True, cache=True)
 def _value_convertible(tmat,
                        face_amount,
-                       coupon_times,
-                       coupon_flows,
+                       cpn_times,
+                       cpn_flows,
                        call_times,
                        call_prices,
                        put_times,
@@ -54,8 +53,8 @@ def _value_convertible(tmat,
 
     interp = InterpTypes.FLAT_FWD_RATES.value
 
-    if len(coupon_times) > 0:
-        if coupon_times[-1] > tmat:
+    if len(cpn_times) > 0:
+        if cpn_times[-1] > tmat:
             raise FinError("Coupon after maturity")
 
     if len(call_times) > 0:
@@ -115,16 +114,16 @@ def _value_convertible(tmat,
 
     # map coupons onto tree but preserve their present value using risky dfs
     treeFlows = np.zeros(num_times)
-    num_coupons = len(coupon_times)
-    for i in range(0, num_coupons):
-        flow_time = coupon_times[i]
+    num_cpns = len(cpn_times)
+    for i in range(0, num_cpns):
+        flow_time = cpn_times[i]
         n = int(round(flow_time / dt, 0))
         treeTime = tree_times[n]
         df_flow = _uinterpolate(flow_time, df_times, df_values, interp)
         df_flow *= exp(-h * flow_time)
         df_tree = _uinterpolate(treeTime, df_times, df_values, interp)
         df_tree *= exp(-h * treeTime)
-        treeFlows[n] += coupon_flows[i] * 1.0 * df_flow / df_tree
+        treeFlows[n] += cpn_flows[i] * 1.0 * df_flow / df_tree
 
     # map call onto tree - must have no calls at high value
     tree_call_value = np.ones(num_times) * face_amount * 1000.0
@@ -135,12 +134,12 @@ def _value_convertible(tmat,
         tree_call_value[n] = call_prices[i]
 
     # map puts onto tree
-    treePutValue = np.zeros(num_times)
+    tree_put_value = np.zeros(num_times)
     num_puts = len(put_times)
     for i in range(0, num_puts):
         put_time = put_times[i]
         n = int(round(put_time / dt, 0))
-        treePutValue[n] = put_prices[i]
+        tree_put_value[n] = put_prices[i]
 
     # map discrete dividend yields onto tree dates when they are made
     treeDividendYield = np.zeros(num_times)
@@ -220,14 +219,15 @@ def _value_convertible(tmat,
         pDef = 1.0 - survival_prob
         df = treeDfs[iTime + 1] / treeDfs[iTime]
         call = tree_call_value[iTime]
-        put = treePutValue[iTime]
+        put = tree_put_value[iTime]
         flow = treeFlows[iTime]
 
         for iNode in range(0, iTime + 1):
             futValueUp = treeConvBondValue[iTime + 1, iNode + 1]
             futValueDn = treeConvBondValue[iTime + 1, iNode]
             hold = pUp * futValueUp + pDn * futValueDn  # pUp already embeds Q
-            holdPV = df * hold + pDef * df * recovery_rate * face_amount + flow * face_amount
+            holdPV = df * hold + pDef * df * recovery_rate * face_amount \
+                + flow * face_amount
             conv = treeConvertValue[iTime, iNode]
             value = min(max(holdPV, conv, put), call)
             treeConvBondValue[iTime, iNode] = value
@@ -270,13 +270,12 @@ class BondConvertible:
                  call_prices: List[float],  # list of call prices
                  put_dates: List[Date],  # list of put dates
                  put_prices: List[float],  # list of put prices
-                 accrual_type: DayCountTypes,  # day count type for accrued
-                 face_amount: float = 100.0, 
-                 calendar_types:CalendarTypes = CalendarTypes.WEEKEND):  # face amount
+                 dc_type: DayCountTypes,  # day count type for accrued
+                 cal_type: CalendarTypes = CalendarTypes.WEEKEND):
         """ Create BondConvertible object by providing the bond Maturity
         date, coupon, frequency type, accrual convention type and then all of
         the details regarding the conversion option including the list of the
-        call and put dates and the corresponding list of call and put prices. 
+        call and put dates and the corresponding list of call and put prices.
         """
 
         check_argument_types(self.__init__, locals())
@@ -285,12 +284,11 @@ class BondConvertible:
             raise FinError("Start convert date is after bond maturity.")
 
         self._maturity_date = maturity_date
-        self._coupon = coupon
-        self._accrual_type = accrual_type
-        self._frequency = annual_frequency(freq_type)
+        self._cpn = coupon
+        self._dc_type = dc_type
+        self._freq = annual_frequency(freq_type)
         self._freq_type = freq_type
-        self._calendar_type = calendar_types
-
+        self._cal_type = cal_type
         self._call_dates = call_dates
         self._call_prices = call_prices
 
@@ -317,9 +315,9 @@ class BondConvertible:
             raise FinError("Conversion ratio is negative.")
 
         self._conversion_ratio = conversion_ratio
-        self._face_amount = face_amount
+        self._par = 100.0
 
-        self._settlement_date = Date(1, 1, 1900)
+        self._settle_date = Date(1, 1, 1900)
         """ I do not determine cashflow dates as I do not want to require
         users to supply the issue date and without that I do not know how
         far to go back in the cashflow date schedule. """
@@ -328,35 +326,35 @@ class BondConvertible:
         self._accrued_days = 0.0
         self._alpha = 0.0
 
-    ###############################################################################
+    ###########################################################################
 
-    def _calculate_coupon_dates(self,
-                              settlement_date: Date):
+    def _calculate_cpn_dates(self,
+                             settle_date: Date):
         """ Determine the convertible bond cash flow payment dates. """
 
         # No need to generate flows if settlement date has not changed
-        if settlement_date == self._settlement_date:
+        if settle_date == self._settle_date:
             return
 
-        self._settlement_date = settlement_date
-        bus_day_rule_type = BusDayAdjustTypes.NONE
-        date_gen_rule_type = DateGenRuleTypes.BACKWARD
+        self._settle_date = settle_date
+        bd_type = BusDayAdjustTypes.NONE
+        dg_type = DateGenRuleTypes.BACKWARD
 
-        self._coupon_dates = Schedule(settlement_date,
-                                    self._maturity_date,
-                                    self._freq_type,
-                                    self._calendar_type,
-                                    bus_day_rule_type,
-                                    date_gen_rule_type)._generate()
+        self._cpn_dates = Schedule(settle_date,
+                                   self._maturity_date,
+                                   self._freq_type,
+                                   self._cal_type,
+                                   bd_type,
+                                   dg_type)._generate()
 
-        self._pcd = self._coupon_dates[0]
-        self._ncd = self._coupon_dates[1]
-        self.calc_accrued_interest(settlement_date)
+        self._pcd = self._cpn_dates[0]
+        self._ncd = self._cpn_dates[1]
+        self.accrued_interest(settle_date, 1.0)
 
-    ###############################################################################
+    ###########################################################################
 
     def value(self,
-              settlement_date: Date,
+              settle_date: Date,
               stock_price: float,
               stock_volatility: float,
               dividend_dates: List[Date],
@@ -392,33 +390,39 @@ class BondConvertible:
         if stock_volatility <= 0.0:
             stock_volatility = 1e-10  # Avoid overflows in delta calc
 
-        self._calculate_coupon_dates(settlement_date)
-        tmat = (self._maturity_date - settlement_date) / gDaysInYear
+        self._calculate_cpn_dates(settle_date)
+
+        tmat = (self._maturity_date - settle_date) / gDaysInYear
+
         if tmat <= 0.0:
             raise FinError("Maturity must not be on or before the value date.")
 
         # We include time zero in the coupon times and flows
-        coupon_times = [0.0]
-        coupon_flows = [0.0]
-        cpn = self._coupon / self._frequency
-        for dt in self._coupon_dates[1:]:
-            flow_time = (dt - settlement_date) / gDaysInYear
-            coupon_times.append(flow_time)
-            coupon_flows.append(cpn)
+        cpn_times = [0.0]
+        cpn_flows = [0.0]
 
-        coupon_times = np.array(coupon_times)
-        coupon_flows = np.array(coupon_flows)
+        cpn = self._cpn / self._freq
 
-        if np.any(coupon_times < 0.0):
+        for dt in self._cpn_dates[1:]:
+            flow_time = (dt - settle_date) / gDaysInYear
+            cpn_times.append(flow_time)
+            cpn_flows.append(cpn)
+
+        cpn_times = np.array(cpn_times)
+        cpn_flows = np.array(cpn_flows)
+
+        if np.any(cpn_times < 0.0):
             raise FinError("No coupon times can be before the value date.")
 
-        if np.any(coupon_times > tmat):
+        if np.any(cpn_times > tmat):
             raise FinError("No coupon times can be after the maturity date.")
 
         call_times = []
+
         for dt in self._call_dates:
-            call_time = (dt - settlement_date) / gDaysInYear
+            call_time = (dt - settle_date) / gDaysInYear
             call_times.append(call_time)
+
         call_times = np.array(call_times)
         call_prices = np.array(self._call_prices)
 
@@ -429,9 +433,11 @@ class BondConvertible:
             raise FinError("No call times can be after the maturity date.")
 
         put_times = []
+
         for dt in self._put_dates:
-            put_time = (dt - settlement_date) / gDaysInYear
+            put_time = (dt - settle_date) / gDaysInYear
             put_times.append(put_time)
+
         put_times = np.array(put_times)
         put_prices = np.array(self._put_prices)
 
@@ -446,24 +452,24 @@ class BondConvertible:
 
         dividend_times = []
         for dt in dividend_dates:
-            dividend_time = (dt - settlement_date) / gDaysInYear
+            dividend_time = (dt - settle_date) / gDaysInYear
             dividend_times.append(dividend_time)
         dividend_times = np.array(dividend_times)
         dividend_yields = np.array(dividend_yields)
 
         # If it's before today it starts today
-        tconv = (self._start_convert_date - settlement_date) / gDaysInYear
+        tconv = (self._start_convert_date - settle_date) / gDaysInYear
         tconv = max(tconv, 0.0)
 
         discount_factors = []
-        for t in coupon_times:
+        for t in cpn_times:
             df = discount_curve._df(t)
             discount_factors.append(df)
 
-        discount_times = np.array(coupon_times)
+        discount_times = np.array(cpn_times)
         discount_factors = np.array(discount_factors)
 
-        if test_monotonicity(coupon_times) is False:
+        if test_monotonicity(cpn_times) is False:
             raise FinError("Coupon times not monotonic")
 
         if test_monotonicity(call_times) is False:
@@ -479,9 +485,9 @@ class BondConvertible:
             raise FinError("Coupon times not monotonic")
 
         v1 = _value_convertible(tmat,
-                                self._face_amount,
-                                coupon_times,
-                                coupon_flows,
+                                self._par,
+                                cpn_times,
+                                cpn_flows,
                                 call_times,
                                 call_prices,
                                 put_times,
@@ -501,9 +507,9 @@ class BondConvertible:
                                 num_steps_per_year)
 
         v2 = _value_convertible(tmat,
-                                self._face_amount,
-                                coupon_times,
-                                coupon_flows,
+                                self._par,
+                                cpn_times,
+                                cpn_flows,
                                 call_times,
                                 call_prices,
                                 put_times,
@@ -528,70 +534,73 @@ class BondConvertible:
         gamma = (v1[3] + v2[3]) / 2.0
         theta = (v1[4] + v2[4]) / 2.0
 
-        results = {"cbprice": cbprice, "bond": bond, "delta": delta,
-                   "gamma": gamma, "theta": theta}
+        results = {"cbprice": cbprice,
+                   "bond": bond,
+                   "delta": delta,
+                   "gamma": gamma,
+                   "theta": theta}
 
         return results
 
-    ###############################################################################
+    ###########################################################################
 
     def accrued_days(self,
-                     settlement_date: Date):
+                     settle_date: Date):
         """ Calculate number days from previous coupon date to settlement."""
-        self._calculate_coupon_dates(settlement_date)
+        self._calculate_cpn_dates(settle_date)
 
-        if len(self._coupon_dates) <= 2:
+        if len(self._cpn_dates) <= 2:
             raise FinError("Accrued interest - not enough flow dates.")
 
-        return settlement_date - self._pcd
+        return settle_date - self._pcd
 
-    ###############################################################################
+    ###########################################################################
 
-    def calc_accrued_interest(self,
-                              settlement_date: Date):
+    def accrued_interest(self,
+                         settle_date: Date,
+                         face: (float)):
         """ Calculate the amount of coupon that has accrued between the
         previous coupon date and the settlement date. """
 
-        if settlement_date != self._settlement_date:
-            self._calculate_coupon_dates(settlement_date)
+        if settle_date != self._settle_date:
+            self._calculate_cpn_dates(settle_date)
 
-        if len(self._coupon_dates) == 0:
+        if len(self._cpn_dates) == 0:
             raise FinError("Accrued interest - not enough flow dates.")
 
-        dc = DayCount(self._accrual_type)
+        dc = DayCount(self._dc_type)
 
         (acc_factor, num, _) = dc.year_frac(self._pcd,
-                                            settlement_date,
+                                            settle_date,
                                             self._ncd,
-                                            self._frequency)
+                                            self._freq)
 
-        self._alpha = 1.0 - acc_factor * self._frequency
+        self._alpha = 1.0 - acc_factor * self._freq
 
-        self._accrued = acc_factor * self._face_amount * self._coupon
+        self._accrued = acc_factor * face * self._cpn
         self._accrued_days = num
         return self._accrued_interest
 
-    ###############################################################################
+    ###########################################################################
 
     def current_yield(self,
                       clean_price: float):
         """ Calculate the current yield of the bond which is the
         coupon divided by the clean price (not the full price)"""
 
-        y = self._coupon * self._face_amount / clean_price
+        y = self._cpn * self._par / clean_price
         return y
 
-    ###############################################################################
+    ###########################################################################
 
     def __repr__(self):
         """ Print a list of the unadjusted coupon payment dates used in
         analytic calculations for the bond. """
         s = label_to_string("OBJECT TYPE", type(self).__name__)
         s += label_to_string("MATURITY DATE", self._maturity_date)
-        s += label_to_string("COUPON", self._coupon)
+        s += label_to_string("COUPON", self._cpn)
         s += label_to_string("FREQUENCY", self._freq_type)
-        s += label_to_string("ACCRUAL TYPE", self._accrual_type)
-        s += label_to_string("FACE AMOUNT", self._face_amount)
+        s += label_to_string("DAY COUNT TYPE", self._dc_type)
         s += label_to_string("CONVERSION RATIO", self._conversion_ratio)
         s += label_to_string("START CONVERT DATE", self._start_convert_date)
         s += label_to_string("CALL", "DATES")
@@ -608,7 +617,7 @@ class BondConvertible:
 
         return s
 
-    ###############################################################################
+    ###########################################################################
 
     def _print(self):
         """ Simple print function for backward compatibility. """
@@ -617,16 +626,14 @@ class BondConvertible:
 
 ###############################################################################
 ###############################################################################
-###############################################################################
-###############################################################################
 # TEST PV OF CASHFLOW MAPPING
 #    if 1==0:
 #        pv = 0.0
-#        for i in range(0, num_coupons):
-#            t = coupon_times[i]
+#        for i in range(0, num_cpns):
+#            t = cpn_times[i]
 #            df = uinterpolate(t, discount_times, discount_factors, interp)
-#            pv += df * couponAmounts[i]
-#            print(i, t, couponAmounts[i], df, pv)
+#            pv += df * cpn_amounts[i]
+#            print(i, t, cpn_amounts[i], df, pv)
 #        pv += df
 #
 #        print("ACTUAL PV",pv)
@@ -643,10 +650,6 @@ class BondConvertible:
 ###############################################################################
 ###############################################################################
 ###############################################################################
-
-
-###############################################################################
-
 
 def print_tree(array):
     n1, n2 = array.shape

@@ -19,7 +19,7 @@ from ...market.curves.discount_curve import DiscountCurve
 
 class SwapFixedLeg:
     """ Class for managing the fixed leg of a swap. A fixed leg is a leg with
-    a sequence of flows calculated according to an ISDA schedule and with a 
+    a sequence of flows calculated according to an ISDA schedule and with a
     coupon that is fixed over the life of the swap. """
 
     def __init__(self,
@@ -28,13 +28,13 @@ class SwapFixedLeg:
                  leg_type: SwapTypes,
                  coupon: (float),
                  freq_type: FrequencyTypes,
-                 day_count_type: DayCountTypes,
+                 dc_type: DayCountTypes,
                  notional: float = ONE_MILLION,
                  principal: float = 0.0,
                  payment_lag: int = 0,
-                 calendar_type: CalendarTypes = CalendarTypes.WEEKEND,
-                 bus_day_adjust_type: BusDayAdjustTypes = BusDayAdjustTypes.FOLLOWING,
-                 date_gen_rule_type: DateGenRuleTypes = DateGenRuleTypes.BACKWARD,
+                 cal_type: CalendarTypes = CalendarTypes.WEEKEND,
+                 bd_type: BusDayAdjustTypes = BusDayAdjustTypes.FOLLOWING,
+                 dg_type: DateGenRuleTypes = DateGenRuleTypes.BACKWARD,
                  end_of_month: bool = False):
         """ Create the fixed leg of a swap contract giving the contract start
         date, its maturity, fixed coupon, fixed leg frequency, fixed leg day
@@ -47,10 +47,10 @@ class SwapFixedLeg:
         else:
             self._termination_date = effective_date.add_tenor(end_date)
 
-        calendar = Calendar(calendar_type)
+        calendar = Calendar(cal_type)
 
         self._maturity_date = calendar.adjust(self._termination_date,
-                                              bus_day_adjust_type)
+                                              bd_type)
 
         if effective_date > self._maturity_date:
             raise FinError("Effective date after maturity date")
@@ -62,12 +62,12 @@ class SwapFixedLeg:
         self._payment_lag = payment_lag
         self._notional = notional
         self._principal = principal
-        self._coupon = coupon
+        self._cpn = coupon
 
-        self._day_count_type = day_count_type
-        self._calendar_type = calendar_type
-        self._bus_day_adjust_type = bus_day_adjust_type
-        self._date_gen_rule_type = date_gen_rule_type
+        self._dc_type = dc_type
+        self._cal_type = cal_type
+        self._bd_type = bd_type
+        self._dg_type = dg_type
         self._end_of_month = end_of_month
 
         self._startAccruedDates = []
@@ -93,9 +93,9 @@ class SwapFixedLeg:
         schedule = Schedule(self._effective_date,
                             self._termination_date,
                             self._freq_type,
-                            self._calendar_type,
-                            self._bus_day_adjust_type,
-                            self._date_gen_rule_type,
+                            self._cal_type,
+                            self._bd_type,
+                            self._dg_type,
                             end_of_month=self._end_of_month)
 
         scheduleDates = schedule._adjusted_dates
@@ -113,8 +113,8 @@ class SwapFixedLeg:
 
         prev_dt = scheduleDates[0]
 
-        day_counter = DayCount(self._day_count_type)
-        calendar = Calendar(self._calendar_type)
+        day_counter = DayCount(self._dc_type)
+        calendar = Calendar(self._cal_type)
 
         for next_dt in scheduleDates[1:]:
 
@@ -132,9 +132,9 @@ class SwapFixedLeg:
             (year_frac, num, den) = day_counter.year_frac(prev_dt,
                                                           next_dt)
 
-            self._rates.append(self._coupon)
+            self._rates.append(self._cpn)
 
-            payment = year_frac * self._notional * self._coupon
+            payment = year_frac * self._notional * self._cpn
 
             self._payments.append(payment)
             self._year_fracs.append(year_frac)
@@ -145,7 +145,7 @@ class SwapFixedLeg:
 ###############################################################################
 
     def value(self,
-              valuation_date: Date,
+              value_date: Date,
               discount_curve: DiscountCurve):
 
         self._paymentDfs = []
@@ -153,7 +153,7 @@ class SwapFixedLeg:
         self._cumulativePVs = []
 
         notional = self._notional
-        dfValue = discount_curve.df(valuation_date)
+        dfValue = discount_curve.df(value_date)
         legPV = 0.0
         numPayments = len(self._payment_dates)
 
@@ -164,7 +164,7 @@ class SwapFixedLeg:
             pmntDate = self._payment_dates[iPmnt]
             pmntAmount = self._payments[iPmnt]
 
-            if pmntDate > valuation_date:
+            if pmntDate > value_date:
 
                 dfPmnt = discount_curve.df(pmntDate) / dfValue
                 pmntPV = pmntAmount * dfPmnt
@@ -180,7 +180,7 @@ class SwapFixedLeg:
                 self._paymentPVs.append(0.0)
                 self._cumulativePVs.append(0.0)
 
-        if pmntDate > valuation_date:
+        if pmntDate > value_date:
             paymentPV = self._principal * dfPmnt * notional
             self._paymentPVs[-1] += paymentPV
             legPV += paymentPV
@@ -200,15 +200,15 @@ class SwapFixedLeg:
 
         print("START DATE:", self._effective_date)
         print("MATURITY DATE:", self._maturity_date)
-        print("COUPON (%):", self._coupon * 100)
+        print("COUPON (%):", self._cpn * 100)
         print("FREQUENCY:", str(self._freq_type))
-        print("DAY COUNT:", str(self._day_count_type))
+        print("DAY COUNT:", str(self._dc_type))
 
         if len(self._payments) == 0:
             print("Payments not calculated.")
             return
 
-        header = [ "PAY_NUM", "PAY_DATE", "ACCR_START", "ACCR_END", 
+        header = [ "PAY_NUM", "PAY_DATE", "ACCR_START", "ACCR_END",
                     "DAYS", "YEARFRAC", "RATE", "PMNT"]
 
         rows = []
@@ -220,7 +220,7 @@ class SwapFixedLeg:
                 self._startAccruedDates[iFlow],
                 self._endAccruedDates[iFlow],
                 self._accrued_days[iFlow],
-                round(self._year_fracs[iFlow],4),
+                round(self._year_fracs[iFlow], 4),
                 round(self._rates[iFlow] * 100.0, 4),
                 round(self._payments[iFlow], 2),
             ])
@@ -238,15 +238,15 @@ class SwapFixedLeg:
 
         print("START DATE:", self._effective_date)
         print("MATURITY DATE:", self._maturity_date)
-        print("COUPON (%):", self._coupon * 100)
+        print("COUPON (%):", self._cpn * 100)
         print("FREQUENCY:", str(self._freq_type))
-        print("DAY COUNT:", str(self._day_count_type))
+        print("DAY COUNT:", str(self._dc_type))
 
         if len(self._payments) == 0:
             print("Payments not calculated.")
             return
 
-        header = [ "PAY_NUM", "PAY_DATE", "NOTIONAL", 
+        header = ["PAY_NUM", "PAY_DATE", "NOTIONAL",
                   "RATE", "PMNT", "DF", "PV", "CUM_PV"]
 
         rows = []
@@ -277,12 +277,12 @@ class SwapFixedLeg:
         s += label_to_string("NOTIONAL", self._notional)
         s += label_to_string("PRINCIPAL", self._principal)
         s += label_to_string("LEG TYPE", self._leg_type)
-        s += label_to_string("COUPON", self._coupon)
+        s += label_to_string("COUPON", self._cpn)
         s += label_to_string("FREQUENCY", self._freq_type)
-        s += label_to_string("DAY COUNT", self._day_count_type)
-        s += label_to_string("CALENDAR", self._calendar_type)
-        s += label_to_string("BUS DAY ADJUST", self._bus_day_adjust_type)
-        s += label_to_string("DATE GEN TYPE", self._date_gen_rule_type)
+        s += label_to_string("DAY COUNT", self._dc_type)
+        s += label_to_string("CALENDAR", self._cal_type)
+        s += label_to_string("BUS DAY ADJUST", self._bd_type)
+        s += label_to_string("DATE GEN TYPE", self._dg_type)
         return s
 
 ###############################################################################

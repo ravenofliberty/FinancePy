@@ -149,7 +149,7 @@ class FXOneTouchOption(FXOption):
 ###############################################################################
 
     def value(self,
-              valuation_date: Date,
+              value_date: Date,
               spot_fx_rate: (float, np.ndarray),
               dom_discount_curve: DiscountCurve,
               for_discount_curve: DiscountCurve,
@@ -158,26 +158,26 @@ class FXOneTouchOption(FXOption):
         assuming a continuous (American) barrier from value date to expiry.
         Handles both cash-or-nothing and asset-or-nothing options."""
 
-        if isinstance(valuation_date, Date) is False:
+        if isinstance(value_date, Date) is False:
             raise FinError("Valuation date is not a Date")
 
-        if valuation_date > self._expiry_date:
+        if value_date > self._expiry_date:
             raise FinError("Valuation date after expiry date.")
 
-        if dom_discount_curve._valuation_date != valuation_date:
+        if dom_discount_curve._value_date != value_date:
             raise FinError("Domestic Curve date not same as valuation date")
 
-        if for_discount_curve._valuation_date != valuation_date:
+        if for_discount_curve._value_date != value_date:
             raise FinError("Foreign Curve date not same as valuation date")
 
         DEBUG_MODE = False
 
         print("USE WITH CAUTION. MORE TESTING REQUIRED.")
 
-        if valuation_date > self._expiry_date:
+        if value_date > self._expiry_date:
             raise FinError("Value date after expiry date.")
 
-        t = (self._expiry_date - valuation_date) / gDaysInYear
+        t = (self._expiry_date - value_date) / gDaysInYear
         t = max(t, 1e-6)
 
         s0 = spot_fx_rate
@@ -187,16 +187,16 @@ class FXOneTouchOption(FXOption):
         sqrtT = np.sqrt(t)
 
         df = dom_discount_curve.df(self._expiry_date)
-        rd = dom_discount_curve.cc_rate(self._expiry_date)
-        rf = for_discount_curve.cc_rate(self._expiry_date)
+        r_d = dom_discount_curve.cc_rate(self._expiry_date)
+        r_f = for_discount_curve.cc_rate(self._expiry_date)
 
         v = model._volatility
         v = max(v, 1e-6)
 
         # Using notation in Haug page 177
-        b = rd - rf
+        b = r_d - r_f
         mu = (b - v * v / 2.0) / v / v
-        lam = np.sqrt(mu * mu + 2.0 * rd / v / v)
+        lam = np.sqrt(mu * mu + 2.0 * r_d / v / v)
 
         if DEBUG_MODE:
             print("t:", t)
@@ -301,7 +301,7 @@ class FXOneTouchOption(FXOption):
             phi = -1.0
             x2 = np.log(s0/H) / v / sqrtT + (mu + 1.0) * v * sqrtT
             y2 = np.log(H/s0) / v / sqrtT + (mu + 1.0) * v * sqrtT
-            dq = np.exp(-rf*t)
+            dq = np.exp(-r_f * t)
             A2 = s0 * dq * n_vect(phi * x2)
             A4 = s0 * dq * np.power(H/s0, 2.0*(mu+1.0)) * n_vect(eta * y2)
             v = (A2 + A4)
@@ -317,7 +317,7 @@ class FXOneTouchOption(FXOption):
             phi = +1.0
             x2 = np.log(s0/H) / v / sqrtT + (mu + 1.0) * v * sqrtT
             y2 = np.log(H/s0) / v / sqrtT + (mu + 1.0) * v * sqrtT
-            dq = np.exp(-rf*t)
+            dq = np.exp(-r_f * t)
             A2 = s0 * dq * n_vect(phi * x2)
             A4 = s0 * dq * np.power(H/s0, 2.0*(mu+1.0)) * n_vect(eta * y2)
             v = (A2 + A4)
@@ -368,7 +368,7 @@ class FXOneTouchOption(FXOption):
 
             x2 = np.log(s0/H) / v / sqrtT + (mu + 1.0) * v * sqrtT
             y2 = np.log(H/s0) / v / sqrtT + (mu + 1.0) * v * sqrtT
-            dq = np.exp(-rf*t)
+            dq = np.exp(-r_f*t)
             A2 = s0 * dq * n_vect(phi * x2)
             A4 = s0 * dq * np.power(H/s0, 2.0*(mu+1.0)) * n_vect(eta * y2)
             v = (A2 - A4)
@@ -385,7 +385,7 @@ class FXOneTouchOption(FXOption):
 
             x2 = np.log(s0/H) / v / sqrtT + (mu + 1.0) * v * sqrtT
             y2 = np.log(H/s0) / v / sqrtT + (mu + 1.0) * v * sqrtT
-            dq = np.exp(-rf*t)
+            dq = np.exp(-r_f*t)
             A2 = s0 * dq * n_vect(phi * x2)
             A4 = s0 * dq * np.power(H/s0, 2.0*(mu+1.0)) * n_vect(eta * y2)
             v = (A2 - A4)
@@ -415,7 +415,7 @@ class FXOneTouchOption(FXOption):
 ###############################################################################
 
     def value_mc(self,
-                 valuation_date: Date,
+                 value_date: Date,
                  stock_price: float,
                  domCurve: DiscountCurve,
                  forCurve: DiscountCurve,
@@ -430,20 +430,20 @@ class FXOneTouchOption(FXOption):
 
         print("THIS NEEDS TO BE CHECKED")
 
-        t = (self._expiry_date - valuation_date) / gDaysInYear
+        t = (self._expiry_date - value_date) / gDaysInYear
 
         df_d = domCurve.df(self._expiry_date)
-        rd = -np.log(df_d)/t
+        r_d = -np.log(df_d)/t
 
         df_f = forCurve.df(self._expiry_date)
-        rf = -np.log(df_f)/t
+        r_f = -np.log(df_f)/t
 
         num_time_steps = int(t * num_steps_per_year) + 1
         dt = t / num_time_steps
 
         v = model._volatility
         s0 = stock_price
-        mu = rd - rf
+        mu = r_d - r_f
 
         s = get_paths(num_paths, num_time_steps, t, mu, s0, v, seed)
 
@@ -458,7 +458,7 @@ class FXOneTouchOption(FXOption):
             if s0 <= H:
                 raise FinError("Barrier has ALREADY been crossed.")
 
-            v = _barrier_pay_one_at_hit_pv_down(s, H, rd, dt)
+            v = _barrier_pay_one_at_hit_pv_down(s, H, r_d, dt)
             v = v * X
             return v
 
@@ -468,7 +468,7 @@ class FXOneTouchOption(FXOption):
             if s0 >= H:
                 raise FinError("Barrier has ALREADY been crossed.")
 
-            v = _barrier_pay_one_at_hit_pv_up(s, H, rd, dt)
+            v = _barrier_pay_one_at_hit_pv_up(s, H, r_d, dt)
             v = v * X
             return v
 
@@ -478,7 +478,7 @@ class FXOneTouchOption(FXOption):
             if s0 <= H:
                 raise FinError("Stock price is currently below barrier.")
 
-            v = _barrier_pay_one_at_hit_pv_down(s, H, rd, dt) * H
+            v = _barrier_pay_one_at_hit_pv_down(s, H, r_d, dt) * H
             return v
 
         elif self._option_type == TouchOptionTypes.UP_AND_IN_ASSET_AT_HIT:
@@ -487,7 +487,7 @@ class FXOneTouchOption(FXOption):
             if s0 >= H:
                 raise FinError("Stock price is currently below barrier.")
 
-            v = _barrier_pay_one_at_hit_pv_up(s, H, rd, dt) * H
+            v = _barrier_pay_one_at_hit_pv_up(s, H, r_d, dt) * H
             return v
 
         elif self._option_type == TouchOptionTypes.DOWN_AND_IN_CASH_AT_EXPIRY:
@@ -497,7 +497,7 @@ class FXOneTouchOption(FXOption):
                 raise FinError("Barrier has  ALREADY been crossed.")
 
             v = _barrier_pay_one_at_hit_pv_down(s, H, 0.0, dt)
-            v = v * X * np.exp(-rd*t)
+            v = v * X * np.exp(- r_d * t)
             return v
 
         elif self._option_type == TouchOptionTypes.UP_AND_IN_CASH_AT_EXPIRY:
@@ -507,7 +507,7 @@ class FXOneTouchOption(FXOption):
                 raise FinError("Barrier has ALREADY been crossed.")
 
             v = _barrier_pay_one_at_hit_pv_up(s, H, 0.0, dt)
-            v = v * X * np.exp(-rd*t)
+            v = v * X * np.exp(- r_d * t)
             return v
 
         elif self._option_type == TouchOptionTypes.DOWN_AND_IN_ASSET_AT_EXPIRY:
@@ -535,7 +535,7 @@ class FXOneTouchOption(FXOption):
                 raise FinError("Barrier has ALREADY been crossed.")
 
             v = 1.0 - _barrier_pay_one_at_hit_pv_down(s, H, 0.0, dt)
-            v = v * X * np.exp(-rd*t)
+            v = v * X * np.exp(-r_d*t)
             return v
 
         elif self._option_type == TouchOptionTypes.UP_AND_OUT_CASH_OR_NOTHING:
@@ -545,7 +545,7 @@ class FXOneTouchOption(FXOption):
                 raise FinError("Barrier has ALREADY been crossed.")
 
             v = 1.0 - _barrier_pay_one_at_hit_pv_up(s, H, 0.0, dt)
-            v = v * X * np.exp(-rd*t)
+            v = v * X * np.exp(-r_d*t)
             return v
 
         elif self._option_type == TouchOptionTypes.DOWN_AND_OUT_ASSET_OR_NOTHING:
@@ -555,7 +555,7 @@ class FXOneTouchOption(FXOption):
                 raise FinError("Stock price is currently below barrier.")
 
             v = _barrier_pay_asset_at_expiry_down_out(s, H)
-            v = v * np.exp(-rd*t)
+            v = v * np.exp(-r_d*t)
             return v
 
         elif self._option_type == TouchOptionTypes.UP_AND_OUT_ASSET_OR_NOTHING:
@@ -565,7 +565,7 @@ class FXOneTouchOption(FXOption):
                 raise FinError("Stock price is currently below barrier.")
 
             v = _barrier_pay_asset_at_expiry_up_out(s, H)
-            v = v * np.exp(-rd*t)
+            v = v * np.exp(-r_d*t)
             return v
         else:
             raise FinError("Unknown option type.")

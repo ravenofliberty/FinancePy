@@ -40,9 +40,9 @@ class EquityCliquetOption(EquityOption):
                  option_type: OptionTypes,
                  freq_type: FrequencyTypes,
                  day_count_type: DayCountTypes = DayCountTypes.THIRTY_E_360,
-                 calendar_type: CalendarTypes = CalendarTypes.WEEKEND,
-                 bus_day_adjust_type: BusDayAdjustTypes = BusDayAdjustTypes.FOLLOWING,
-                 date_gen_rule_type: DateGenRuleTypes = DateGenRuleTypes.BACKWARD):
+                 cal_type: CalendarTypes = CalendarTypes.WEEKEND,
+                 bd_type: BusDayAdjustTypes = BusDayAdjustTypes.FOLLOWING,
+                 dg_type: DateGenRuleTypes = DateGenRuleTypes.BACKWARD):
         """ Create the EquityCliquetOption by passing in the start date
         and the end date and whether it is a call or a put. Some additional
         data is needed in order to calculate the individual payments. """
@@ -60,22 +60,22 @@ class EquityCliquetOption(EquityOption):
         self._final_expiry_date = final_expiry_date
         self._option_type = option_type
         self._freq_type = freq_type
-        self._day_count_type = day_count_type
-        self._calendar_type = calendar_type
-        self._bus_day_adjust_type = bus_day_adjust_type
-        self._date_gen_rule_type = date_gen_rule_type
+        self._dc_type = day_count_type
+        self._cal_type = cal_type
+        self._bd_type = bd_type
+        self._dg_type = dg_type
 
         self._expiry_dates = Schedule(self._start_date,
                                       self._final_expiry_date,
                                       self._freq_type,
-                                      self._calendar_type,
-                                      self._bus_day_adjust_type,
-                                      self._date_gen_rule_type)._generate()
+                                      self._cal_type,
+                                      self._bd_type,
+                                      self._dg_type)._generate()
 
 ###############################################################################
 
     def value(self,
-              valuation_date: Date,
+              value_date: Date,
               stock_price: float,
               discount_curve: DiscountCurve,
               dividend_curve: DiscountCurve,
@@ -83,18 +83,18 @@ class EquityCliquetOption(EquityOption):
         """ Value the cliquet option as a sequence of options using the Black-
         Scholes model. """
 
-        if isinstance(valuation_date, Date) == False:
+        if isinstance(value_date, Date) is False:
             raise FinError("Valuation date is not a Date")
 
-        if discount_curve._valuation_date != valuation_date:
+        if discount_curve._value_date != value_date:
             raise FinError(
-                "Discount Curve valuation date not same as option valuation date")
+                "Discount Curve valuation date not same as option value date")
 
-        if dividend_curve._valuation_date != valuation_date:
+        if dividend_curve._value_date != value_date:
             raise FinError(
-                "Dividend Curve valuation date not same as option valuation date")
+                "Dividend Curve valuation date not same as option value date")
 
-        if valuation_date > self._final_expiry_date:
+        if value_date > self._final_expiry_date:
             raise FinError("Value date after final expiry date.")
 
         s = stock_price
@@ -115,20 +115,20 @@ class EquityCliquetOption(EquityOption):
 
             for dt in self._expiry_dates:
 
-                if dt > valuation_date:
+                if dt > value_date:
 
                     df = discount_curve.df(dt)
-                    texp = (dt - valuation_date) / gDaysInYear
-                    r = -np.log(df) / texp
+                    t_exp = (dt - value_date) / gDaysInYear
+                    r = -np.log(df) / t_exp
 
                     # option life
-                    tau = texp - tprev
+                    tau = t_exp - tprev
 
                     # The deflator is out to the option reset time
                     dq = dividend_curve._df(tprev)
 
                     # The option dividend is over the option life
-                    dqMat = dividend_curve._df(texp)
+                    dqMat = dividend_curve._df(t_exp)
 
                     q = -np.log(dqMat/dq)/tau
 
@@ -148,7 +148,7 @@ class EquityCliquetOption(EquityOption):
                     self._dfs.append(df)
                     self._v_options.append(v)
                     self._actualDates.append(dt)
-                    tprev = texp
+                    tprev = t_exp
         else:
             raise FinError("Unknown Model Type")
 
@@ -156,7 +156,7 @@ class EquityCliquetOption(EquityOption):
 
 ###############################################################################
 
-    def print_flows(self):
+    def print_payments(self):
         num_options = len(self._v_options)
         for i in range(0, num_options):
             print(self._actualDates[i], self._dfs[i], self._v_options[i])
@@ -169,11 +169,11 @@ class EquityCliquetOption(EquityOption):
         s += label_to_string("FINAL EXPIRY DATE", self._final_expiry_date)
         s += label_to_string("OPTION TYPE", self._option_type)
         s += label_to_string("FREQUENCY TYPE", self._freq_type)
-        s += label_to_string("DAY COUNT TYPE", self._day_count_type)
-        s += label_to_string("CALENDAR TYPE", self._calendar_type)
-        s += label_to_string("BUS DAY ADJUST TYPE", self._bus_day_adjust_type)
+        s += label_to_string("DAY COUNT TYPE", self._dc_type)
+        s += label_to_string("CALENDAR TYPE", self._cal_type)
+        s += label_to_string("BUS DAY ADJUST TYPE", self._bd_type)
         s += label_to_string("DATE GEN RULE TYPE",
-                             self._date_gen_rule_type, "")
+                             self._dg_type, "")
         return s
 
 ###############################################################################

@@ -26,28 +26,28 @@ class DiscountCurvePoly(DiscountCurve):
     The class inherits all of the methods from FinDiscountCurve. """
 
     def __init__(self,
-                 valuation_date: Date,
+                 value_date: Date,
                  coefficients: (list, np.ndarray),
                  freq_type: FrequencyTypes = FrequencyTypes.CONTINUOUS,
-                 day_count_type: DayCountTypes = DayCountTypes.ACT_ACT_ISDA):
+                 dc_type: DayCountTypes = DayCountTypes.ACT_ACT_ISDA):
         """ Create zero rate curve parametrised using a cubic curve from
         coefficients and specifying a compounding frequency type and day count
         convention. """
 
         check_argument_types(self.__init__, locals())
 
-        self._valuation_date = valuation_date
+        self._value_date = value_date
         self._coefficients = coefficients
         self._power = len(coefficients) - 1
         self._freq_type = freq_type
-        self._day_count_type = day_count_type
+        self._dc_type = dc_type
 
-    ###############################################################################
+    ###########################################################################
 
     def zero_rate(self,
                   dts: (list, Date),
                   freq_type: FrequencyTypes = FrequencyTypes.CONTINUOUS,
-                  day_count_type: DayCountTypes = DayCountTypes.ACT_360):
+                  dc_type: DayCountTypes = DayCountTypes.ACT_360):
         """ Calculation of zero rates with specified frequency according to
         polynomial parametrisation. This method overrides FinDiscountCurve.
         The parametrisation is not strictly in terms of continuously compounded
@@ -59,28 +59,28 @@ class DiscountCurvePoly(DiscountCurve):
         if isinstance(freq_type, FrequencyTypes) is False:
             raise FinError("Invalid Frequency type.")
 
-        if isinstance(day_count_type, DayCountTypes) is False:
+        if isinstance(dc_type, DayCountTypes) is False:
             raise FinError("Invalid Day Count type.")
 
         # Get day count times to use with curve day count convention
         dc_times = times_from_dates(
-            dts, self._valuation_date, self._day_count_type)
+            dts, self._value_date, self._dc_type)
 
         # We now get the discount factors using these times
         zero_rates = self._zero_rate(dc_times)
 
         # Now get the discount factors using curve conventions
-        dfs = self._zero_to_df(self._valuation_date,
+        dfs = self._zero_to_df(self._value_date,
                                zero_rates,
                                dc_times,
                                self._freq_type,
-                               self._day_count_type)
+                               self._dc_type)
 
         # Convert these to zero rates in the required frequency and day count
-        zero_rates = self._df_to_zero(dfs, dts, freq_type, day_count_type)
+        zero_rates = self._df_to_zero(dfs, dts, freq_type, dc_type)
         return zero_rates
 
-    ###############################################################################
+    ###########################################################################
 
     def _zero_rate(self,
                    times: (float, np.ndarray)):
@@ -97,7 +97,7 @@ class DiscountCurvePoly(DiscountCurve):
 
         return zero_rate
 
-    ###############################################################################
+    ###########################################################################
 
     def df(self,
            dates: (list, Date)):
@@ -108,22 +108,22 @@ class DiscountCurvePoly(DiscountCurve):
 
         # Get day count times to use with curve day count convention
         dc_times = times_from_dates(dates,
-                                    self._valuation_date,
-                                    self._day_count_type)
+                                    self._value_date,
+                                    self._dc_type)
 
         # We now get the discount factors using these times
         zero_rates = self._zero_rate(dc_times)
 
         # Now get the discount factors using curve conventions
-        dfs = self._zero_to_df(self._valuation_date,
+        dfs = self._zero_to_df(self._value_date,
                                zero_rates,
                                dc_times,
                                self._freq_type,
-                               self._day_count_type)
+                               self._dc_type)
 
         return dfs
 
-    ###############################################################################
+    ###########################################################################
 
     def __repr__(self):
         """ Display internal parameters of curve. """
@@ -136,7 +136,7 @@ class DiscountCurvePoly(DiscountCurve):
 
         return s
 
-    ###############################################################################
+    ###########################################################################
 
     def _print(self):
         """ Simple print function for backward compatibility. """

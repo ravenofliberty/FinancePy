@@ -16,7 +16,7 @@ from ...models.option_implied_dbn import option_implied_dbn
 from ...utils.helpers import check_argument_types, label_to_string
 from ...market.curves.discount_curve import DiscountCurve
 
-from ...models.volatility_fns import VolFunctionTypes
+from ...models.volatility_fns import VolFuncTypes
 from ...models.volatility_fns import vol_function_clark
 from ...models.volatility_fns import vol_function_bloomberg
 from ...models.volatility_fns import vol_function_svi
@@ -115,7 +115,7 @@ def _solve_to_horizon(s, t, r, q,
         elif finSolverType == FinSolverTypes.CONJUGATE_GRADIENT:
             opt = minimize(_obj, x_inits, args, method="CG", tol=tol)
             xopt = opt.x
-    except:
+    except Exception:
         # If convergence fails try again with CG if necessary
         if finSolverType != FinSolverTypes.CONJUGATE_GRADIENT:
             print('Failed to converge, will try CG')
@@ -134,28 +134,28 @@ def vol_function(vol_function_type_value, params, f, k, t):
     """ Return the volatility for a strike using a given polynomial
     interpolation following Section 3.9 of Iain Clark book. """
 
-    if vol_function_type_value == VolFunctionTypes.CLARK.value:
+    if vol_function_type_value == VolFuncTypes.CLARK.value:
         vol = vol_function_clark(params, f, k, t)
         return vol
-    elif vol_function_type_value == VolFunctionTypes.SABR_BETA_ONE.value:
+    elif vol_function_type_value == VolFuncTypes.SABR_BETA_ONE.value:
         vol = vol_function_sabr_beta_one(params, f, k, t)
         return vol
-    elif vol_function_type_value == VolFunctionTypes.SABR_BETA_HALF.value:
+    elif vol_function_type_value == VolFuncTypes.SABR_BETA_HALF.value:
         vol = vol_function_sabr_beta_half(params, f, k, t)
         return vol
-    elif vol_function_type_value == VolFunctionTypes.BBG.value:
+    elif vol_function_type_value == VolFuncTypes.BBG.value:
         vol = vol_function_bloomberg(params, f, k, t)
         return vol
-    elif vol_function_type_value == VolFunctionTypes.SABR.value:
+    elif vol_function_type_value == VolFuncTypes.SABR.value:
         vol = vol_function_sabr(params, f, k, t)
         return vol
-    elif vol_function_type_value == VolFunctionTypes.CLARK5.value:
+    elif vol_function_type_value == VolFuncTypes.CLARK5.value:
         vol = vol_function_clark(params, f, k, t)
         return vol
-    elif vol_function_type_value == VolFunctionTypes.SVI.value:
+    elif vol_function_type_value == VolFuncTypes.SVI.value:
         vol = vol_function_svi(params, f, k, t)
         return vol
-    elif vol_function_type_value == VolFunctionTypes.SSVI.value:
+    elif vol_function_type_value == VolFuncTypes.SSVI.value:
         vol = vol_function_ssvi(params, f, k, t)
         return vol
     else:
@@ -225,27 +225,27 @@ def _solver_for_smile_strike(s, t, r, q,
 
 class EquityVolSurface:
     """ Class to perform a calibration of a chosen parametrised surface to the
-    prices of equity options at different strikes and expiry tenors. There is0 
-    a choice of volatility function from cubic in delta to full SABR and SSVI. 
-    Check out VolFunctionTypes. Visualising the volatility curve is useful. 
+    prices of equity options at different strikes and expiry tenors. There is0
+    a choice of volatility function from cubic in delta to full SABR and SSVI.
+    Check out VolFuncTypes. Visualising the volatility curve is useful.
     Also, there is no guarantee that the implied pdf will be positive."""
 
     def __init__(self,
-                 valuation_date: Date,
+                 value_date: Date,
                  stock_price: float,
                  discount_curve: DiscountCurve,
                  dividend_curve: DiscountCurve,
                  expiry_dates: (list),
                  strikes: (list, np.ndarray),
                  volatility_grid: (list, np.ndarray),
-                 volatility_function_type: VolFunctionTypes = VolFunctionTypes.CLARK,
+                 volatility_function_type: VolFuncTypes = VolFuncTypes.CLARK,
                  finSolverType: FinSolverTypes = FinSolverTypes.NELDER_MEAD):
         """ Create the EquitySurface object by passing in market vol data
         for a list of strikes and expiry dates. """
 
         check_argument_types(self.__init__, locals())
 
-        self._valuation_date = valuation_date
+        self._value_date = value_date
         self._stock_price = stock_price
 
         self._discount_curve = discount_curve
@@ -275,7 +275,7 @@ class EquityVolSurface:
 
 ###############################################################################
 
-    def volatility_from_strike_date(self, K, expiry_date):
+    def vol_from_strike_date(self, K, expiry_date):
         """ Interpolates the Black-Scholes volatility from the volatility
         surface given call option strike and expiry date. Linear interpolation
         is done in variance space. The smile strikes at bracketed dates are
@@ -286,7 +286,7 @@ class EquityVolSurface:
         interpolation is done in variance space and then converted back to a
         lognormal volatility."""
 
-        texp = (expiry_date - self._valuation_date) / gDaysInYear
+        t_exp = (expiry_date - self._value_date) / gDaysInYear
 
         vol_type_value = self._volatility_function_type.value
 
@@ -301,22 +301,22 @@ class EquityVolSurface:
             index1 = 0
 
         # If the time is below first time then assume a flat vol
-        elif texp <= self._texp[0]:
+        elif t_exp <= self._t_exp[0]:
 
             index0 = 0
             index1 = 0
 
         # If the time is beyond the last time then extrapolate with a flat vol
-        elif texp >= self._texp[-1]:
+        elif t_exp >= self._t_exp[-1]:
 
-            index0 = len(self._texp) - 1
-            index1 = len(self._texp) - 1
+            index0 = len(self._t_exp) - 1
+            index1 = len(self._t_exp) - 1
 
         else:  # Otherwise we look for bracketing times and interpolate
 
             for i in range(1, num_curves):
 
-                if texp <= self._texp[i] and texp > self._texp[i-1]:
+                if t_exp <= self._t_exp[i] and t_exp > self._t_exp[i-1]:
                     index0 = i-1
                     index1 = i
                     break
@@ -324,8 +324,8 @@ class EquityVolSurface:
         fwd0 = self._F0T[index0]
         fwd1 = self._F0T[index1]
 
-        t0 = self._texp[index0]
-        t1 = self._texp[index1]
+        t0 = self._t_exp[index0]
+        t1 = self._t_exp[index1]
 
         vol0 = vol_function(vol_type_value, self._parameters[index0],
                             fwd0, K, t0)
@@ -345,12 +345,12 @@ class EquityVolSurface:
         vart1 = vol1*vol1*t1
 
         if np.abs(t1-t0) > 1e-6:
-            vart = ((texp-t0) * vart1 + (t1-texp) * vart0) / (t1 - t0)
+            vart = ((t_exp-t0) * vart1 + (t1-t_exp) * vart0) / (t1 - t0)
 
             if vart < 0.0:
                 raise FinError("Negative variance.")
 
-            volt = np.sqrt(vart/texp)
+            volt = np.sqrt(vart/t_exp)
 
         else:
             volt = vol1
@@ -359,20 +359,20 @@ class EquityVolSurface:
 
 ###############################################################################
 
-    # def delta_to_strike(self, callDelta, expiry_date, deltaMethod):
+    # def delta_to_strike(self, call_delta, expiry_date, delta_method):
     #     """ Interpolates the strike at a delta and expiry date. Linear
     #     interpolation is used in strike."""
 
-    #     texp = (expiry_date - self._valuation_date) / gDaysInYear
+    #     t_exp = (expiry_date - self._value_date) / gDaysInYear
 
     #     vol_type_value = self._volatility_function_type.value
 
     #     s = self._spot_fx_rate
 
-    #     if deltaMethod is None:
-    #         delta_method_value = self._deltaMethod.value
+    #     if delta_method is None:
+    #         delta_method_value = self._delta_method.value
     #     else:
-    #         delta_method_value = deltaMethod.value
+    #         delta_method_value = delta_method.value
 
     #     index0 = 0 # lower index in bracket
     #     index1 = 0 # upper index in bracket
@@ -386,36 +386,36 @@ class EquityVolSurface:
     #         index1 = 0
 
     #     # If the time is below first time then assume a flat vol
-    #     elif texp <= self._texp[0]:
+    #     elif t_exp <= self._t_exp[0]:
 
     #         index0 = 0
     #         index1 = 0
 
     #     # If the time is beyond the last time then extrapolate with a flat vol
-    #     elif texp > self._texp[-1]:
+    #     elif t_exp > self._t_exp[-1]:
 
-    #         index0 = len(self._texp) - 1
-    #         index1 = len(self._texp) - 1
+    #         index0 = len(self._t_exp) - 1
+    #         index1 = len(self._t_exp) - 1
 
     #     else: # Otherwise we look for bracketing times and interpolate
 
     #         for i in range(1, num_curves):
 
-    #             if texp <= self._texp[i] and texp > self._texp[i-1]:
+    #             if t_exp <= self._t_exp[i] and t_exp > self._t_exp[i-1]:
     #                 index0 = i-1
     #                 index1 = i
     #                 break
 
     #     #######################################################################
 
-    #     t0 = self._texp[index0]
-    #     t1 = self._texp[index1]
+    #     t0 = self._t_exp[index0]
+    #     t1 = self._t_exp[index1]
 
     #     initialGuess = self._K_ATM[index0]
 
-    #     K0 = _solver_for_smile_strike(s, texp, self._rd[index0], self._rf[index0],
+    #     K0 = _solver_for_smile_strike(s, t_exp, self._rd[index0], self._rf[index0],
     #                               OptionTypes.EUROPEAN_CALL.value,
-    #                               vol_type_value, callDelta,
+    #                               vol_type_value, call_delta,
     #                               delta_method_value,
     #                               initialGuess,
     #                               self._parameters[index0],
@@ -424,11 +424,11 @@ class EquityVolSurface:
 
     #     if index1 != index0:
 
-    #         K1 = _solver_for_smile_strike(s, texp,
+    #         K1 = _solver_for_smile_strike(s, t_exp,
     #                                   self._rd[index1],
     #                                   self._rf[index1],
     #                                   OptionTypes.EUROPEAN_CALL.value,
-    #                                   vol_type_value, callDelta,
+    #                                   vol_type_value, call_delta,
     #                                   delta_method_value,
     #                                   initialGuess,
     #                                   self._parameters[index1],
@@ -443,7 +443,7 @@ class EquityVolSurface:
 
     #     if np.abs(t1-t0) > 1e-6:
 
-    #         K = ((texp-t0) * K1 + (t1-texp) * K1) / (t1 - t0)
+    #         K = ((t_exp-t0) * K1 + (t1-t_exp) * K1) / (t1 - t0)
 
     #     else:
 
@@ -453,19 +453,18 @@ class EquityVolSurface:
 
 ###############################################################################
 
-    def volatility_from_delta_date(self, callDelta, expiry_date,
-                                   deltaMethod=None):
+    def vol_from_delta_date(self, call_delta, expiry_date, delta_method=None):
         """ Interpolates the Black-Scholes volatility from the volatility
         surface given a call option delta and expiry date. Linear interpolation
-        is done in variance space. The smile strikes at bracketed dates are 
+        is done in variance space. The smile strikes at bracketed dates are
         determined by determining the strike that reproduces the provided delta
-        value. This uses the calibration delta convention, but it can be 
-        overriden by a provided delta convention. The resulting volatilities 
-        are then determined for each bracketing expiry time and linear 
-        interpolation is done in variance space and then converted back to a 
+        value. This uses the calibration delta convention, but it can be
+        overriden by a provided delta convention. The resulting volatilities
+        are then determined for each bracketing expiry time and linear
+        interpolation is done in variance space and then converted back to a
         lognormal volatility."""
 
-        texp = (expiry_date - self._valuation_date) / gDaysInYear
+        t_exp = (expiry_date - self._value_date) / gDaysInYear
 
         vol_type_value = self._volatility_function_type.value
 
@@ -483,22 +482,22 @@ class EquityVolSurface:
             index1 = 0
 
         # If the time is below first time then assume a flat vol
-        elif texp <= self._texp[0]:
+        elif t_exp <= self._t_exp[0]:
 
             index0 = 0
             index1 = 0
 
         # If the time is beyond the last time then extrapolate with a flat vol
-        elif texp > self._texp[-1]:
+        elif t_exp > self._t_exp[-1]:
 
-            index0 = len(self._texp) - 1
-            index1 = len(self._texp) - 1
+            index0 = len(self._t_exp) - 1
+            index1 = len(self._t_exp) - 1
 
         else:  # Otherwise we look for bracketing times and interpolate
 
             for i in range(1, num_curves):
 
-                if texp <= self._texp[i] and texp > self._texp[i-1]:
+                if t_exp <= self._t_exp[i] and t_exp > self._t_exp[i-1]:
                     index0 = i-1
                     index1 = i
                     break
@@ -506,17 +505,17 @@ class EquityVolSurface:
         fwd0 = self._F0T[index0]
         fwd1 = self._F0T[index1]
 
-        t0 = self._texp[index0]
-        t1 = self._texp[index1]
+        t0 = self._t_exp[index0]
+        t1 = self._t_exp[index1]
 
         initialGuess = self._stock_price
 
         K0 = _solver_for_smile_strike(s,
-                                      texp,
+                                      t_exp,
                                       self._r[index0],
                                       self._q[index0],
                                       OptionTypes.EUROPEAN_CALL.value,
-                                      vol_type_value, callDelta,
+                                      vol_type_value, call_delta,
                                       initialGuess,
                                       self._parameters[index0])
 
@@ -525,11 +524,11 @@ class EquityVolSurface:
 
         if index1 != index0:
 
-            K1 = _solver_for_smile_strike(s, texp,
+            K1 = _solver_for_smile_strike(s, t_exp,
                                           self._r[index1],
                                           self._q[index1],
                                           OptionTypes.EUROPEAN_CALL.value,
-                                          vol_type_value, callDelta,
+                                          vol_type_value, call_delta,
                                           initialGuess,
                                           self._parameters[index1])
 
@@ -545,14 +544,14 @@ class EquityVolSurface:
 
         if np.abs(t1-t0) > 1e-6:
 
-            vart = ((texp-t0) * vart1 + (t1-texp) * vart0) / (t1 - t0)
-            kt = ((texp-t0) * K1 + (t1-texp) * K0) / (t1 - t0)
+            vart = ((t_exp-t0) * vart1 + (t1-t_exp) * vart0) / (t1 - t0)
+            kt = ((t_exp-t0) * K1 + (t1-t_exp) * K0) / (t1 - t0)
 
             if vart < 0.0:
                 raise FinError(
                     "Failed interpolation due to negative variance.")
 
-            volt = np.sqrt(vart/texp)
+            volt = np.sqrt(vart/t_exp)
 
         else:
 
@@ -570,28 +569,28 @@ class EquityVolSurface:
 
         numExpiryDates = self._numExpiryDates
 
-        if self._volatility_function_type == VolFunctionTypes.CLARK:
+        if self._volatility_function_type == VolFuncTypes.CLARK:
             num_parameters = 3
             self._parameters = np.zeros([numExpiryDates, num_parameters])
-        elif self._volatility_function_type == VolFunctionTypes.SABR_BETA_ONE:
+        elif self._volatility_function_type == VolFuncTypes.SABR_BETA_ONE:
             num_parameters = 3
             self._parameters = np.zeros([numExpiryDates, num_parameters])
-        elif self._volatility_function_type == VolFunctionTypes.SABR_BETA_HALF:
+        elif self._volatility_function_type == VolFuncTypes.SABR_BETA_HALF:
             num_parameters = 3
             self._parameters = np.zeros([numExpiryDates, num_parameters])
-        elif self._volatility_function_type == VolFunctionTypes.BBG:
+        elif self._volatility_function_type == VolFuncTypes.BBG:
             num_parameters = 3
             self._parameters = np.zeros([numExpiryDates, num_parameters])
-        elif self._volatility_function_type == VolFunctionTypes.SABR:
+        elif self._volatility_function_type == VolFuncTypes.SABR:
             num_parameters = 4
             self._parameters = np.zeros([numExpiryDates, num_parameters])
-        elif self._volatility_function_type == VolFunctionTypes.CLARK5:
+        elif self._volatility_function_type == VolFuncTypes.CLARK5:
             num_parameters = 5
             self._parameters = np.zeros([numExpiryDates, num_parameters])
-        elif self._volatility_function_type == VolFunctionTypes.SVI:
+        elif self._volatility_function_type == VolFuncTypes.SVI:
             num_parameters = 5
             self._parameters = np.zeros([numExpiryDates, num_parameters])
-        elif self._volatility_function_type == VolFunctionTypes.SSVI:
+        elif self._volatility_function_type == VolFuncTypes.SSVI:
             num_parameters = 5
             self._parameters = np.zeros([numExpiryDates, num_parameters])
             self._parameters[:, 0] = 0.2  # sigma
@@ -603,7 +602,7 @@ class EquityVolSurface:
             print(self._volatilityFunctionType)
             raise FinError("Unknown Model Type")
 
-        self._texp = np.zeros(numExpiryDates)
+        self._t_exp = np.zeros(numExpiryDates)
 
         self._F0T = np.zeros(numExpiryDates)
         self._r = np.zeros(numExpiryDates)
@@ -613,20 +612,20 @@ class EquityVolSurface:
         # TODO: ADD SPOT DAYS
         #######################################################################
 
-        spot_date = self._valuation_date
+        spot_date = self._value_date
 
         for i in range(0, numExpiryDates):
 
             expiry_date = self._expiry_dates[i]
-            texp = (expiry_date - spot_date) / gDaysInYear
+            t_exp = (expiry_date - spot_date) / gDaysInYear
 
-            disDF = self._discount_curve._df(texp)
-            divDF = self._dividend_curve._df(texp)
-            f = s * divDF/disDF
+            dis_df = self._discount_curve._df(t_exp)
+            div_df = self._dividend_curve._df(t_exp)
+            f = s * div_df / dis_df
 
-            self._texp[i] = texp
-            self._r[i] = -np.log(disDF) / texp
-            self._q[i] = -np.log(divDF) / texp
+            self._t_exp[i] = t_exp
+            self._r[i] = -np.log(dis_df) / t_exp
+            self._q[i] = -np.log(div_df) / t_exp
             self._F0T[i] = f
 
         #######################################################################
@@ -641,7 +640,7 @@ class EquityVolSurface:
 
         for i in range(0, numExpiryDates):
 
-            t = self._texp[i]
+            t = self._t_exp[i]
             r = self._r[i]
             q = self._q[i]
 
@@ -668,7 +667,7 @@ class EquityVolSurface:
         if verbose:
 
             print("==========================================================")
-            print("VALUE DATE:", self._valuation_date)
+            print("VALUE DATE:", self._value_date)
             print("STOCK PRICE:", self._stock_price)
             print("==========================================================")
 
@@ -681,16 +680,16 @@ class EquityVolSurface:
 
                 strike = self._strikes[j]
 
-                fittedVol = self.volatility_from_strike_date(
-                    strike, expiry_date)
+                fitted_vol = self.vol_from_strike_date(strike,
+                                                       expiry_date)
 
                 mkt_vol = self._volatility_grid[i][j]
 
-                diff = fittedVol - mkt_vol
+                diff = fitted_vol - mkt_vol
 
                 print("%s %12.3f %7.4f %7.4f %7.5f" %
                       (expiry_date, strike,
-                       fittedVol*100.0, mkt_vol*100, diff*100))
+                       fitted_vol*100.0, mkt_vol*100, diff*100))
 
         print("==========================================================")
 
@@ -704,8 +703,8 @@ class EquityVolSurface:
 
         for iTenor in range(0, self._numExpiryDates):
 
-            f = self._F0T[iTenor]
-            t = self._texp[iTenor]
+            f = self._F_0T[iTenor]
+            t = self._t_exp[iTenor]
 
             dS = (highS - lowS) / numIntervals
 
@@ -754,7 +753,7 @@ class EquityVolSurface:
             plt.figure()
 
             ks = []
-            fittedVols = []
+            fitted_vols = []
 
             numIntervals = 30
             K = lowK
@@ -763,13 +762,12 @@ class EquityVolSurface:
             for i in range(0, numIntervals):
 
                 ks.append(K)
-                fittedVol = self.volatility_from_strike_date(
-                    K, expiry_date) * 100.
-                fittedVols.append(fittedVol)
+                fittedVol = self.vol_from_strike_date(K, expiry_date) * 100.
+                fitted_vols.append(fittedVol)
                 K = K + dK
 
             labelStr = "FITTED AT " + str(self._expiry_dates[tenorIndex])
-            plt.plot(ks, fittedVols, label=labelStr)
+            plt.plot(ks, fitted_vols, label=labelStr)
 
             labelStr = "MARKET AT " + str(self._expiry_dates[tenorIndex])
             mkt_vols = self._volatility_grid[tenorIndex] * 100.0
@@ -786,7 +784,7 @@ class EquityVolSurface:
 
     def __repr__(self):
         s = label_to_string("OBJECT TYPE", type(self).__name__)
-        s += label_to_string("VALUE DATE", self._valuation_date)
+        s += label_to_string("VALUE DATE", self._value_date)
         s += label_to_string("STOCK PRICE", self._stock_price)
         s += label_to_string("VOL FUNCTION", self._volatility_function_type)
 

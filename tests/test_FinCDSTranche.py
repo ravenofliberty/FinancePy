@@ -11,18 +11,18 @@ from financepy.products.credit.cds_tranche import FinLossDistributionBuilder
 
 tradeDate = Date(1, 3, 2007)
 step_in_date = tradeDate.add_days(1)
-valuation_date = tradeDate.add_days(1)
+value_date = tradeDate.add_days(1)
 
 libor_curve = build_Ibor_Curve(tradeDate)
 
 trancheMaturity = Date(20, 12, 2011)
-tranche1 = CDSTranche(valuation_date, trancheMaturity, 0.00, 0.03)
-tranche2 = CDSTranche(valuation_date, trancheMaturity, 0.03, 0.06)
-tranche3 = CDSTranche(valuation_date, trancheMaturity, 0.06, 0.09)
-tranche4 = CDSTranche(valuation_date, trancheMaturity, 0.09, 0.12)
-tranche5 = CDSTranche(valuation_date, trancheMaturity, 0.12, 0.22)
-tranche6 = CDSTranche(valuation_date, trancheMaturity, 0.22, 0.60)
-tranche7 = CDSTranche(valuation_date, trancheMaturity, 0.00, 0.60)
+tranche1 = CDSTranche(value_date, trancheMaturity, 0.00, 0.03)
+tranche2 = CDSTranche(value_date, trancheMaturity, 0.03, 0.06)
+tranche3 = CDSTranche(value_date, trancheMaturity, 0.06, 0.09)
+tranche4 = CDSTranche(value_date, trancheMaturity, 0.09, 0.12)
+tranche5 = CDSTranche(value_date, trancheMaturity, 0.12, 0.22)
+tranche6 = CDSTranche(value_date, trancheMaturity, 0.22, 0.60)
+tranche7 = CDSTranche(value_date, trancheMaturity, 0.00, 0.60)
 tranches = [
     tranche1,
     tranche2,
@@ -41,6 +41,7 @@ cdsIndex = CDSIndexPortfolio()
 
 
 def test_homogeneous():
+
     num_credits = 125
     spd3Y = 0.0012
     spd5Y = 0.0025
@@ -48,7 +49,7 @@ def test_homogeneous():
     spd10Y = 0.0046
     num_points = 40
 
-    issuer_curves = loadHomogeneousCDSCurves(valuation_date,
+    issuer_curves = loadHomogeneousCDSCurves(value_date,
                                              libor_curve,
                                              spd3Y,
                                              spd5Y,
@@ -56,16 +57,16 @@ def test_homogeneous():
                                              spd10Y,
                                              num_credits)
 
-    intrinsicSpd = cdsIndex.intrinsic_spread(valuation_date,
+    intrinsicSpd = cdsIndex.intrinsic_spread(value_date,
                                              step_in_date,
                                              trancheMaturity,
                                              issuer_curves) * 10000.0
 
-    assert round(intrinsicSpd, 4) == 23.9775
+    assert round(intrinsicSpd, 4) == 23.9767
 
     method = FinLossDistributionBuilder.RECURSION
     v = tranche1.value_bc(
-        valuation_date,
+        value_date,
         issuer_curves,
         upfront,
         spd,
@@ -73,11 +74,11 @@ def test_homogeneous():
         corr2,
         num_points,
         method)
-    assert round(v[3] * 10000, 4) == 582.5015
+    assert round(v[3] * 10000, 4) == 582.3189
 
     method = FinLossDistributionBuilder.ADJUSTED_BINOMIAL
     v = tranche3.value_bc(
-        valuation_date,
+        value_date,
         issuer_curves,
         upfront,
         spd,
@@ -85,11 +86,11 @@ def test_homogeneous():
         corr2,
         num_points,
         method)
-    assert round(v[3] * 10000, 4) == 29.9536
+    assert round(v[3] * 10000, 4) == 29.9804
 
     method = FinLossDistributionBuilder.GAUSSIAN
     v = tranche5.value_bc(
-        valuation_date,
+        value_date,
         issuer_curves,
         upfront,
         spd,
@@ -97,11 +98,11 @@ def test_homogeneous():
         corr2,
         num_points,
         method)
-    assert round(v[3] * 10000, 4) == 4.3941
+    assert round(v[3] * 10000, 4) == 4.3979
 
     method = FinLossDistributionBuilder.LHP
     v = tranche7.value_bc(
-        valuation_date,
+        value_date,
         issuer_curves,
         upfront,
         spd,
@@ -109,25 +110,25 @@ def test_homogeneous():
         corr2,
         num_points,
         method)
-    assert round(v[3] * 10000, 4) == 39.9626
+    assert round(v[3] * 10000, 4) == 39.9617
 
 
 def test_heterogeneous():
     num_points = 40
 
-    issuer_curves = loadHeterogeneousSpreadCurves(valuation_date,
+    issuer_curves = loadHeterogeneousSpreadCurves(value_date,
                                                   libor_curve)
 
-    intrinsicSpd = cdsIndex.intrinsic_spread(valuation_date,
+    intrinsicSpd = cdsIndex.intrinsic_spread(value_date,
                                              step_in_date,
                                              trancheMaturity,
                                              issuer_curves) * 10000.0
 
-    assert round(intrinsicSpd, 4) == 34.3337
+    assert round(intrinsicSpd, 4) == 34.3326
 
     method = FinLossDistributionBuilder.RECURSION
     v = tranche1.value_bc(
-        valuation_date,
+        value_date,
         issuer_curves,
         upfront,
         spd,
@@ -135,11 +136,11 @@ def test_heterogeneous():
         corr2,
         num_points,
         method)
-    assert round(v[3] * 10000, 4) == 868.4220
+    assert round(v[3] * 10000, 4) == 868.1327
 
     method = FinLossDistributionBuilder.ADJUSTED_BINOMIAL
     v = tranche2.value_bc(
-        valuation_date,
+        value_date,
         issuer_curves,
         upfront,
         spd,
@@ -147,11 +148,11 @@ def test_heterogeneous():
         corr2,
         num_points,
         method)
-    assert round(v[3] * 10000, 4) == 173.3458
+    assert round(v[3] * 10000, 4) == 173.4304
 
     method = FinLossDistributionBuilder.GAUSSIAN
     v = tranche4.value_bc(
-        valuation_date,
+        value_date,
         issuer_curves,
         upfront,
         spd,
@@ -159,11 +160,11 @@ def test_heterogeneous():
         corr2,
         num_points,
         method)
-    assert round(v[3] * 10000, 4) == 12.3538
+    assert round(v[3] * 10000, 4) == 12.3681
 
     method = FinLossDistributionBuilder.LHP
     v = tranche6.value_bc(
-        valuation_date,
+        value_date,
         issuer_curves,
         upfront,
         spd,
@@ -171,4 +172,4 @@ def test_heterogeneous():
         corr2,
         num_points,
         method)
-    assert round(v[3] * 10000, 4) == 0.3379
+    assert round(v[3] * 10000, 4) == 0.3386
